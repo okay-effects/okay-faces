@@ -154,7 +154,8 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
             case _: Step.Waiting[A, M] @unchecked if settings.focus && face.isConnected => focusStep(at)
             case _ => unit
           })
-          .flatMap(_ => if (follows && face.isConnected) page(Page.ToEnd[Unit](u => u)) else unit))
+          .flatMap(_ => if (!face.isConnected || !settings.follow) unit
+            else if (follows) page(Page.ToEnd[Unit](u => u)) else page(Page.ToTop[Unit](u => u))))
       }
       else
         (if (before.problems != s.problems) problems(drawn, s.problems, at, settings.focus && face.isConnected)

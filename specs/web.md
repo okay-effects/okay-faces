@@ -132,7 +132,7 @@ One machine may show program after program (`Session.show(first, done)`): an app
 
 FOLLOWING WHAT COMES LAST (`Settings.follow`, 2026-10-25): a step changed in place keeps the page's end in view when
 a person was at its end (`Page.AtEnd`, `Page.ToEnd`) — a conversation, a log; one who scrolled up to read stays where
-they are. The first step drawn opens at its end.
+they are. The first step drawn opens at its end; a step drawn anew (other actions: another page) at its top.
 
 LONG TEXT: an action's fields `long` (`Action.withLong(names*)`, like `withMore`, on the wire too) are drawn as a
 `<textarea>` — on the DOM and Laminar faces, on the HTML face.

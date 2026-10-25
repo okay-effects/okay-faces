@@ -25,6 +25,8 @@ object Page {
   final case class AtEnd[X](answer: Boolean => X) extends Page[X]
   /** the page scrolled to its end: what came last in view */
   final case class ToEnd[X](answer: Unit => X) extends Page[X]
+  /** the page scrolled to its top: another page, read from its start */
+  final case class ToTop[X](answer: Unit => X) extends Page[X]
   /** `old` made `next` IN PLACE: what is equal kept, the rest changed or replaced (`World.morph`); the node now there */
   final case class Morph[X](old: dom.Node, next: dom.Node, answer: dom.Node => X) extends Page[X]
   /** `child` into `parent`, before `before` or last */
@@ -119,11 +121,11 @@ class World[F <: Runner with Singleton](transport: Request => Future[Response] =
         case Page.AtEnd(answer) =>
           val doc = dom.document.documentElement
           answer(dom.window.innerHeight + dom.window.pageYOffset >= doc.scrollHeight - 96)
+        case Page.ToTop(answer) =>
+          World.scrolling.scrollTop = 0
+          answer(())
         case Page.ToEnd(answer) =>
-          // the scrolling element's own property: every browser has it (and jsdom, which has no scrollTo)
-          val doc = Option(dom.document.asInstanceOf[scala.scalajs.js.Dynamic].scrollingElement)
-            .filterNot(scala.scalajs.js.isUndefined).getOrElse(dom.document.documentElement)
-            .asInstanceOf[scala.scalajs.js.Dynamic]
+          val doc = World.scrolling
           doc.scrollTop = doc.scrollHeight
           answer(())
         case Page.Morph(old, next, answer) =>
@@ -231,6 +233,11 @@ object World {
   private[dom] val listened: scala.scalajs.js.Dynamic =
     scala.scalajs.js.Dynamic.newInstance(scala.scalajs.js.Dynamic.global.WeakSet)()
   private def listens(n: dom.Node): Boolean = listened.has(n).asInstanceOf[Boolean]
+  /** the element the page scrolls by: its own `scrollTop` — every browser has it, and jsdom (no `scrollTo`) */
+  private[dom] def scrolling: scala.scalajs.js.Dynamic =
+    Option(dom.document.asInstanceOf[scala.scalajs.js.Dynamic].scrollingElement)
+      .filterNot(scala.scalajs.js.isUndefined).getOrElse(dom.document.documentElement)
+      .asInstanceOf[scala.scalajs.js.Dynamic]
 
   /**
    * `old` made like `next`, keeping what it can: a node equal to the new one is kept; text of a text node changed; an
