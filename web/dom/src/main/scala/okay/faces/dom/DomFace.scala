@@ -145,16 +145,16 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
         } yield ()
       } else if (!(before.step eq s.step) || !(before.history eq s.history) || !(before.told eq s.told)) {
         pressed = None
-        val follows =
-          settings.follow && (before.step match { case _: Step.Waiting[A, M] @unchecked => false; case _ => true })
-        render(s).flatMap(next => swap(at, next).flatMap(_ => later { at = next; busy(drawn, face, s.busy) }))
+        val first = before.step match { case _: Step.Waiting[A, M] @unchecked => false; case _ => true }
+        // the end in view after a step drawn anew: the first one, or one that follows a person reading the end
+        (if (settings.follow && !first) page(Page.AtEnd[Boolean](b => b)) else pure[Boolean, W](settings.follow))
+          .flatMap(follows => render(s).flatMap(next => swap(at, next).flatMap(_ => later { at = next; busy(drawn, face, s.busy) }))
           .flatMap(_ => s.step match {
             // a new step takes the keyboard, where the face is in the page
             case _: Step.Waiting[A, M] @unchecked if settings.focus && face.isConnected => focusStep(at)
             case _ => unit
           })
-          // the first step drawn of a face that follows: its end in view
-          .flatMap(_ => if (follows && face.isConnected) page(Page.ToEnd[Unit](u => u)) else unit)
+          .flatMap(_ => if (follows && face.isConnected) page(Page.ToEnd[Unit](u => u)) else unit))
       }
       else
         (if (before.problems != s.problems) problems(drawn, s.problems, at, settings.focus && face.isConnected)
