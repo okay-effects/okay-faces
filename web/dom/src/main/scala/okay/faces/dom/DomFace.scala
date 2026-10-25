@@ -81,6 +81,7 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
   def session[A](settings: DomFace.Settings = DomFace.Settings()): Session[A, ({ type L[X] = X ! Pure })#L] = {
     type M[X] = X ! Pure
     val m = new Machine[A, M](new Lower[M] { def apply[X](m: M[X])(k: X => Unit): Unit = k(run(m)) }, _ => (), settings)
+    m.session = true
     m.open()
     new Session[A, M](m)
   }
@@ -91,6 +92,8 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
       Shown(Vector.empty, Step.Told(View.Empty, null.asInstanceOf[M[Step[A, M]]]), Nil, Nil, busy = true)
     // the face, the step drawn in it, what that step drew
     private[DomFace] var face: dom.html.Element = null
+    // one program after another: a program's end not drawn — the next one's first step changes the last in place
+    private[DomFace] var session = false
     private var at: dom.Node = null
     // the step's view, where it is drawn: changed in place when the next step offers the same
     private var viewAt: dom.Node = null
@@ -164,6 +167,7 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
             lower(next)(settle(_, Vector.empty, if (w.back) w :: s.history else s.history))
           }
         }
+      case Step.Done(a) if session => done(a)
       case Step.Done(a) =>
         world(set(Shown(told, step, history, Nil, busy = false))); done(a)
     }

@@ -90,4 +90,21 @@ class KeepingSuite extends munit.FunSuite {
     assert(root.textContent.contains("done: pressed at 1"), root.innerHTML)
     assertEquals(root.querySelectorAll("form").length, 0)
   }
+
+  test("a session: program after program in one face, the next one's step changing the last in place") {
+    val session = face.session[Any]()
+    val root = mounted(session.element)
+    def one(n: Int): Unit = session.show(steps[Any, F, Void](timeline(Meanwhile.manual[Int], n)
+      .asInstanceOf[Any ! F]), (a: Any) => one(n + 1))
+    one(1)
+    val title = q(root, "#f-title").asInstanceOf[dom.html.Input]
+    title.value = "kept"
+    val firstLine = q(root, ".okay-view p")
+    q(root, "button[data-action=press]").click()
+    q(root, "button[data-action=press]").click()
+    assertEquals(root.querySelectorAll(".okay-view p").length, 3)
+    assert(q(root, ".okay-view p") eq firstLine, "the first line kept")
+    assertEquals(q(root, "#f-title").asInstanceOf[dom.html.Input].value, "kept")
+    assert(root.querySelector(".okay-done") == null, "no end drawn between programs")
+  }
 }
