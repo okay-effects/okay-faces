@@ -120,7 +120,12 @@ class World[F <: Runner with Singleton](transport: Request => Future[Response] =
           val doc = dom.document.documentElement
           answer(dom.window.innerHeight + dom.window.pageYOffset >= doc.scrollHeight - 96)
         case Page.ToEnd(answer) =>
-          dom.window.scrollTo(0, dom.document.documentElement.scrollHeight); answer(())
+          // the scrolling element's own property: every browser has it (and jsdom, which has no scrollTo)
+          val doc = Option(dom.document.asInstanceOf[scala.scalajs.js.Dynamic].scrollingElement)
+            .filterNot(scala.scalajs.js.isUndefined).getOrElse(dom.document.documentElement)
+            .asInstanceOf[scala.scalajs.js.Dynamic]
+          doc.scrollTop = doc.scrollHeight
+          answer(())
         case Page.Morph(old, next, answer) =>
           val kept = World.morph(old, next)
           if (!(kept eq old) && old.parentNode != null) old.parentNode.replaceChild(kept, old)
