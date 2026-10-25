@@ -105,7 +105,7 @@ trait Drawing[F <: Runner with Singleton] {
           listen(b, "click")(_ => choose(Chosen.plain(a.name)))).map(_ => b)
       }
     case schema =>
-      val inputs = new Inputs(words, a.more)
+      val inputs = new Inputs(words, a.more, a.long)
       drawn.forms = inputs :: drawn.forms
       for {
         submit <- button("submit", Role.Action.classes)(List(txt(a.label)))
@@ -121,16 +121,18 @@ trait Drawing[F <: Runner with Singleton] {
   }
 
   /** the inputs of a form, kept by path, read at submit */
-  final class Inputs(words: Words, val more: Set[String] = Set.empty) {
+  final class Inputs(words: Words, val more: Set[String] = Set.empty, val long: Set[String] = Set.empty) {
     /** the form's Options, the `<details>` of the fields held back, once drawn */
     var options: Option[dom.Node] = None
     private val inputs = scala.collection.mutable.Map.empty[List[String], dom.Node]
     private val selects = scala.collection.mutable.Map.empty[List[String], dom.Node]
     private val areas = scala.collection.mutable.Map.empty[List[String], dom.Node]
+    // the fields of long text: a text area each, read whole
+    private val longs = scala.collection.mutable.Map.empty[List[String], dom.Node]
     private val items = scala.collection.mutable.Map.empty[List[String], () => Vector[Int]]
     private def id(path: List[String]) = "f" + path.map("-" + _).mkString
     /** the controls by path: where a problem of that path is marked */
-    def controls: List[(List[String], dom.Node)] = (inputs ++ selects ++ areas).toList
+    def controls: List[(List[String], dom.Node)] = (inputs ++ selects ++ areas ++ longs).toList
 
     def of(path: List[String], schema: Schema, field: Option[Schema.Field] = None): dom.Node ! W = schema match {
       case Schema.Record(fs) if path.isEmpty && fs.exists(f => more(f.name)) =>
@@ -201,6 +203,14 @@ trait Drawing[F <: Runner with Singleton] {
         el("textarea", "id" -> id(path), "placeholder" -> words.onePerLine)(Nil).flatMap { area =>
           later { areas(path) = area; labelled(path, field, area) }
         }
+      case Schema.Text(_) if path.size == 1 && long(path.head) =>
+        val default = field.flatMap(_.default).map {
+          case Json.Str(s) => s
+          case other => Json.print(other)
+        }
+        el("textarea", "id" -> id(path))(default.toList.map(txt)).flatMap { area =>
+          later { longs(path) = area; labelled(path, field, area) }
+        }
       case leaf =>
         val typ = leaf match {
           case Schema.Integer(_) | Schema.Number(_) => "number"
@@ -255,6 +265,8 @@ trait Drawing[F <: Runner with Singleton] {
           Json.Arr(v.split("\n").toVector.map(_.trim).filter(_.nonEmpty).map(l => typed(of0, l)))))
       case Schema.Bool =>
         inputs.get(path).fold(pure[Json, W](Json.Null))(i => get(i, Page.Checked).map(c => Json.Bool(c == "true")))
+      case _ if longs.contains(path) =>
+        get(longs(path), Page.Value).map(v => if (v.isEmpty) Json.Null else Json.Str(v))
       case leaf => inputs.get(path).fold(pure[Json, W](Json.Null))(i => get(i, Page.Value).map(v =>
           if (v.isEmpty) Json.Null else typed(leaf, v)))
     }

@@ -210,24 +210,28 @@ object Forms {
       val open = if (problems.exists(_.path.headOption.exists(a.more))) " open=\"\"" else ""
       s"""<form method="post" ${cls(Role.Form)} action="$here/act/${a.name}">${a.doc.map(d =>
           s"<p ${cls(Role.Doc)}>${esc(d)}</p>").getOrElse("")}<fieldset>${shown.map(x =>
-          field(List(x.name), x.schema, Some(x), typed)).mkString}<details ${cls(Role.More)}$open><summary>${esc(
-          words.options)}</summary>${held.map(x => field(List(x.name), x.schema, Some(x), typed)).mkString
+          field(List(x.name), x.schema, Some(x), typed, a.long)).mkString}<details ${cls(Role.More)}$open><summary>${esc(
+          words.options)}</summary>${held.map(x => field(List(x.name), x.schema, Some(x), typed, a.long)).mkString
         }</details></fieldset><button ${cls(Role.Action)}>${esc(a.label)}</button></form>"""
     case schema =>
       s"""<form method="post" ${cls(Role.Form)} action="$here/act/${a.name}">${a.doc.map(d =>
-          s"<p ${cls(Role.Doc)}>${esc(d)}</p>").getOrElse("")}${field(Nil, schema, None, typed)}<button ${cls(
+          s"<p ${cls(Role.Doc)}>${esc(d)}</p>").getOrElse("")}${field(Nil, schema, None, typed, a.long)}<button ${cls(
           Role.Action)}>${esc(a.label)}</button></form>"""
     }
   private def name(path: List[String]) = path.mkString(".")
   def field(path: List[String], schema: Schema, f: Option[Schema.Field],
-    typed: Map[String, List[String]] = Map.empty): String = schema match {
+    typed: Map[String, List[String]] = Map.empty, long: Set[String] = Set.empty): String = schema match {
     case Schema.Record(fs) => "<fieldset>" + f.flatMap(_.label).orElse(f.map(_.name)).map(l =>
         s"<legend ${cls(Role.Label)}>${esc(l)}</legend>").getOrElse("") +
-        fs.map(x => field(path :+ x.name, x.schema, Some(x), typed)).mkString + "</fieldset>"
+        fs.map(x => field(path :+ x.name, x.schema, Some(x), typed, long)).mkString + "</fieldset>"
     case Schema.Described(of, label, doc) => field(path, of,
         Some(f.getOrElse(Schema.Field(path.lastOption.getOrElse(""), of, None, None, false, None)).copy(
-            label = Some(label), doc = doc)), typed)
-    case Schema.Optional(of) => field(path, of, f, typed)
+            label = Some(label), doc = doc)), typed, long)
+    case Schema.Optional(of) => field(path, of, f, typed, long)
+    case Schema.Text(_) if path.size == 1 && long(path.head) =>
+      val text = typed.get(name(path)).flatMap(_.headOption)
+        .orElse(f.flatMap(_.default).map { case Json.Str(s) => s; case other => Json.print(other) }).getOrElse("")
+      labelled(path, f, s"""<textarea name="${name(path)}" id="f-${name(path)}">${esc(text)}</textarea>""")
     case Schema.Choice(options) =>
       val chosen = typed.get(name(path)).flatMap(_.headOption)
       labelled(path, f,

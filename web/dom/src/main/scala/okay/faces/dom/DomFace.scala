@@ -71,17 +71,43 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
 
   // ---- THE MACHINE: one per element — what is shown, how it runs a rest, what it does at the end
 
-  final class Machine[A, M[_]](lower: Lower[M], done: A => Unit, settings: DomFace.Settings) {
+  /** ONE FACE, PROGRAM AFTER PROGRAM: its element made once; each `show` runs a program's steps in it, the page kept
+   * where the next step offers what the last offered (specs/web.md, keeping what is on the page) */
+  final class Session[A, M[_]] private[DomFace] (machine: Machine[A, M]) {
+    def element: dom.html.Element = machine.face
+    def show(first: M[Step[A, M]], done: A => Unit): Unit = machine.show(first, done)
+  }
+  /** a session whose rest runs at once */
+  def session[A](settings: DomFace.Settings = DomFace.Settings()): Session[A, ({ type L[X] = X ! Pure })#L] = {
+    type M[X] = X ! Pure
+    val m = new Machine[A, M](new Lower[M] { def apply[X](m: M[X])(k: X => Unit): Unit = k(run(m)) }, _ => (), settings)
+    m.open()
+    new Session[A, M](m)
+  }
+
+  final class Machine[A, M[_]](lower: Lower[M], private var done: A => Unit, settings: DomFace.Settings) {
     private val words = settings.look.map(_.words).getOrElse(Words.english)
     private var shown: Shown[A, M] =
       Shown(Vector.empty, Step.Told(View.Empty, null.asInstanceOf[M[Step[A, M]]]), Nil, Nil, busy = true)
     // the face, the step drawn in it, what that step drew
-    private var face: dom.html.Element = null
+    private[DomFace] var face: dom.html.Element = null
     private var at: dom.Node = null
+    // the step's view, where it is drawn: changed in place when the next step offers the same
+    private var viewAt: dom.Node = null
     private var drawn: Drawn = new Drawn(true)
     private var unlisten: () => Unit = () => ()
 
     def element(first: M[Step[A, M]]): dom.html.Element = {
+      open()
+      lower(first)(settle(_, Vector.empty, Nil))
+      face
+    }
+    /** another program in the same face */
+    def show(first: M[Step[A, M]], done: A => Unit): Unit = {
+      this.done = done
+      lower(first)(settle(_, Vector.empty, Nil))
+    }
+    private[DomFace] def open(): Unit =
       world(for {
         f <- el("div", cls("okay-face"), "aria-busy" -> "true")(Nil)
         d <- place
@@ -93,15 +119,21 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
           perform[History].apply[W, Unit](History.Back[Unit](() => back(), () => face.isConnected, _ => ()))
         else unit
       } yield ())
-      lower(first)(settle(_, Vector.empty, Nil))
-      face
-    }
 
     /** a new state: drawn again when the step is another, else its problems and buttons changed in place */
     private def set(s: Shown[A, M]): Unit ! W = later {
       val before = shown
       shown = s
-      if (!(before.step eq s.step) || !(before.history eq s.history) || !(before.told eq s.told))
+      if (!(before.step eq s.step) && kept(before, s)) {
+        // the same actions: the view changed in place, the forms untouched — what is typed stays
+        val w = s.step.asInstanceOf[Step.Waiting[A, M]]
+        for {
+          next <- viewOf(w)
+          now <- page(Page.Morph[dom.Node](viewAt, next, n => n))
+          _ <- later { viewAt = now; problems(drawn, s.problems, at, focus = false) }
+          _ <- busy(drawn, face, s.busy)
+        } yield ()
+      } else if (!(before.step eq s.step) || !(before.history eq s.history) || !(before.told eq s.told))
         render(s).flatMap(next => swap(at, next).flatMap(_ => later { at = next; busy(drawn, face, s.busy) }))
           .flatMap(_ => s.step match {
             // a new step takes the keyboard, where the face is in the page
@@ -152,6 +184,27 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
       }
     }
 
+    /** whether a step may be shown by changing the one shown in place: both wait, with the same actions, the same
+     * history and told views, the face drawn */
+    private def kept(before: Shown[A, M], s: Shown[A, M]): Boolean = (before.step, s.step) match {
+      case (b: Step.Waiting[A, M] @unchecked, n: Step.Waiting[A, M] @unchecked) =>
+        viewAt != null && (before.history eq s.history) && before.told == s.told &&
+          b.actions.map(DomFace.signature) == n.actions.map(DomFace.signature)
+      case _ => false
+    }
+    /** a step's view, drawn: a ref chooses on the step shown when it is clicked */
+    private def viewOf(w: Step.Waiting[A, M]): dom.Node ! W = {
+      val ref: Option[String => Unit] = if (w.actions.exists(_.name == "ref"))
+        Some(key => chooseNow(Chosen("ref", Json.obj("key" -> Json.Str(key)))))
+      else None
+      el("section", cls(Role.View.classes))(List(view(w.view, ref)))
+    }
+    /** a choice on the step shown now: a button kept from an earlier step of the same actions means the same */
+    private def chooseNow(chosen: Chosen): Unit = shown.step match {
+      case w: Step.Waiting[A, M] @unchecked => choose(w, chosen)
+      case _ => ()
+    }
+
     def render(s: Shown[A, M]): dom.Node ! W = later {
       drawn = new Drawn(s.busy)
       val notices = s.told.toList.map(v => el("section", cls(Role.Told.classes))(List(view(v, None))))
@@ -160,17 +213,15 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
           el("div")(notices :+ el("div", cls("okay-done"))(List(view(words.over, None))))
         case Step.Told(_, _) => el("div")(notices :+ el("div", cls("okay-busy"))(List(txt("…"))))
         case w: Step.Waiting[A, M] @unchecked =>
-          val ref: Option[String => Unit] = if (w.actions.exists(_.name == "ref"))
-            Some(key => choose(w, Chosen("ref", Json.obj("key" -> Json.Str(key)))))
-          else None
           val actions: List[dom.Node ! W] =
-            w.actions.filterNot(_.name == "ref").map(a => action(a, choose(w, _), drawn, words))
+            w.actions.filterNot(_.name == "ref").map(a => action(a, chooseNow, drawn, words))
           val backButton: List[dom.Node ! W] =
             if (s.history.isEmpty) Nil
             else List(button("button", Role.Back.classes)(List(txt(words.back))).flatMap(b =>
               listen(b, "click")(_ => back()).map(_ => b)))
           for {
-            v <- el("section", cls(Role.View.classes))(List(view(w.view, ref)))
+            v <- viewOf(w)
+            _ <- later { viewAt = v; unit }
             problemsAt <- place
             nav <- el("nav", cls(Role.Actions.classes))(actions ++ backButton)
             step <- el("div")(notices ++ List(node(v), node(problemsAt), node(nav)))
@@ -182,6 +233,9 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
 }
 
 object DomFace {
+  /** what an action offers, all but what it makes: two steps of equal signatures offer the same */
+  def signature(a: okay.faces.Action[_]): (String, String, Option[String], okay.effects.shape.Schema, Set[String],
+    Set[String]) = (a.name, a.label, a.doc, a.params.erased, a.more, a.long)
   /** THE FACE'S SETTINGS: the Laminar face's — how it looks (a `<style>` and the face's words), whether a step is an
    * entry of the browser's history (its back button then goes back a step) — and whether the face moves the keyboard
    * (a new step's first field, a problem's field) */

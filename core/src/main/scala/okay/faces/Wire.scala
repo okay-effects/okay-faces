@@ -11,12 +11,13 @@ import okay.effects.shape.{Schema, Shape}
  * is made before it travels.
  */
 final case class Affordance(name: String, label: String, doc: Option[String], params: Schema,
-  more: Set[String] = Set.empty) {
+  more: Set[String] = Set.empty, long: Set[String] = Set.empty) {
   def json: Json = Json.Obj(Vector("name" -> Json.Str(name), "label" -> Json.Str(label)) ++ doc.map(d =>
-    "doc" -> Json.Str(d)) ++ Option.when(more.nonEmpty)("more" -> Json.Arr(more.toVector.sorted.map(Json.Str(_)))) :+
+    "doc" -> Json.Str(d)) ++ Option.when(more.nonEmpty)("more" -> Json.Arr(more.toVector.sorted.map(Json.Str(_)))) ++
+    Option.when(long.nonEmpty)("long" -> Json.Arr(long.toVector.sorted.map(Json.Str(_)))) :+
     ("params" -> Schema.shape.encode(params)))
   /** the action a client offers: the arguments checked against the schema, kept as JSON */
-  def action: Action[Json] = Action.of[Json, Json](name, label, Schema.structural(params), doc, more)(j => j)
+  def action: Action[Json] = Action.of[Json, Json](name, label, Schema.structural(params), doc, more, long)(j => j)
 }
 object Affordance {
   def decode(j: Json): Either[String, Affordance] = j match {
@@ -25,9 +26,11 @@ object Affordance {
         params <- o.get("params").toRight("no params").flatMap(p =>
           Schema.shape.decode(p).left.map(okay.effects.shape.Problem.render))
       } yield Affordance(name, label, o.get("doc").collect { case Json.Str(d) => d }, params,
-        o.get("more").collect { case Json.Arr(ns) => ns.collect { case Json.Str(n) => n }.toSet }.getOrElse(Set.empty))
+        names(o, "more"), names(o, "long"))
     case other => Left(s"an affordance is an object, not ${Json.kind(other)}")
   }
+  private def names(o: Json.Obj, k: String): Set[String] =
+    o.get(k).collect { case Json.Arr(ns) => ns.collect { case Json.Str(n) => n }.toSet }.getOrElse(Set.empty)
   private def str(o: Json.Obj, k: String): Either[String, String] =
     o.get(k) match { case Some(Json.Str(s)) => Right(s); case _ => Left(s"no $k") }
 }
@@ -103,6 +106,8 @@ object ViewJson {
       }
     case other => Left(s"a view is an object, not ${Json.kind(other)}")
   }
+  private def names(o: Json.Obj, k: String): Set[String] =
+    o.get(k).collect { case Json.Arr(ns) => ns.collect { case Json.Str(n) => n }.toSet }.getOrElse(Set.empty)
   private def str(o: Json.Obj, k: String): Either[String, String] =
     o.get(k) match { case Some(Json.Str(s)) => Right(s); case _ => Left(s"no $k") }
   private def int(o: Json.Obj, k: String): Either[String, Int] =

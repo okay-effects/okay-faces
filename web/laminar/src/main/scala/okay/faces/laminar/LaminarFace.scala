@@ -197,7 +197,7 @@ object Forms {
         button(typ := "button", cls := Role.Action.classes, dataAttr("action") := a.name, disabled <-- busy, a.label,
           onClick --> Observer[dom.MouseEvent](_ => choose(Chosen.plain(a.name))))
       case schema =>
-        val inputs = new Inputs(words, a.more, problems)
+        val inputs = new Inputs(words, a.more, problems, a.long)
         val body = inputs.of(Nil, schema)
         form(cls := Role.Form.classes, dataAttr("action") := a.name, a.doc.map(d => p(cls := Role.Doc.classes, d)),
           body,
@@ -207,10 +207,12 @@ object Forms {
 
   /** the inputs of a form, kept by path, read at submit */
   final class Inputs(words: Words = Words.english, more: Set[String] = Set.empty,
-    problems: Signal[Problems] = Val(Nil)) {
+    problems: Signal[Problems] = Val(Nil), long: Set[String] = Set.empty) {
     private val inputs = scala.collection.mutable.Map.empty[List[String], ReactiveHtmlElement[dom.html.Input]]
     private val selects = scala.collection.mutable.Map.empty[List[String], ReactiveHtmlElement[dom.html.Select]]
     private val areas = scala.collection.mutable.Map.empty[List[String], ReactiveHtmlElement[dom.html.TextArea]]
+    // the fields of long text: a text area each, read whole
+    private val longs = scala.collection.mutable.Map.empty[List[String], ReactiveHtmlElement[dom.html.TextArea]]
     private val items = scala.collection.mutable.Map.empty[List[String], () => Vector[Int]]
     private def id(path: List[String]) = "f" + path.map("-" + _).mkString
 
@@ -270,6 +272,11 @@ object Forms {
         val area = textArea(idAttr := id(path), placeholder := words.onePerLine)
         areas(path) = area
         labelled(path, field, area)
+      case Schema.Text(_) if path.size == 1 && long(path.head) =>
+        val area = textArea(idAttr := id(path), field.flatMap(_.default).map(d =>
+          defaultValue := (d match { case Json.Str(s) => s; case other => Json.print(other) })))
+        longs(path) = area
+        labelled(path, field, area)
       case leaf =>
         val in = input(idAttr := id(path),
           typ := (leaf match {
@@ -312,6 +319,8 @@ object Forms {
           Json.Arr(a.ref.value.split("\n").toVector.map(_.trim).filter(_.nonEmpty).map(l => typed(of0, l)))).getOrElse(
           Json.Null)
       case Schema.Bool => inputs.get(path).map(i => Json.Bool(i.ref.checked)).getOrElse(Json.Null)
+      case _ if longs.contains(path) => Option(longs(path).ref.value).filter(_.nonEmpty).map(Json.Str(_))
+          .getOrElse(Json.Null)
       case leaf => inputs.get(path).map(_.ref.value).filter(_.nonEmpty).map(typed(leaf, _)).getOrElse(Json.Null)
     }
     private def typed(schema: Schema, s: String): Json = schema match {

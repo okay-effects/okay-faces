@@ -21,6 +21,8 @@ object Page {
   /** a place for a node to come: a comment, matched by no selector */
   final case class Place[X](answer: dom.Node => X) extends Page[X]
   final case class Swap[X](old: dom.Node, next: dom.Node, answer: Unit => X) extends Page[X]
+  /** `old` made `next` IN PLACE: what is equal kept, the rest changed or replaced (`World.morph`); the node now there */
+  final case class Morph[X](old: dom.Node, next: dom.Node, answer: dom.Node => X) extends Page[X]
   /** `child` into `parent`, before `before` or last */
   final case class Insert[X](parent: dom.Node, child: dom.Node, before: Option[dom.Node], answer: Unit => X)
     extends Page[X]
@@ -110,12 +112,17 @@ class World[F <: Runner with Singleton](transport: Request => Future[Response] =
         case Page.Place(answer) => answer(dom.document.createComment(""))
         case Page.Swap(old, next, answer) =>
           if (old.parentNode != null) old.parentNode.replaceChild(next, old); answer(())
+        case Page.Morph(old, next, answer) =>
+          val kept = World.morph(old, next)
+          if (!(kept eq old) && old.parentNode != null) old.parentNode.replaceChild(kept, old)
+          answer(kept)
         case Page.Insert(parent, child, before, answer) =>
           before.fold(parent.appendChild(child))(b => parent.insertBefore(child, b)); answer(())
         case Page.Remove(node, answer) => if (node.parentNode != null) node.parentNode.removeChild(node); answer(())
         case Page.Listen(target, event, act, answer) =>
           val f: scala.scalajs.js.Function1[dom.Event, Unit] = (e: dom.Event) => act(e)
           target.addEventListener(event, f)
+          World.listened.add(target)
           answer(() => target.removeEventListener(event, f))
         case Page.Get(node, prop, answer) => answer(prop match {
             case Page.Value => node.asInstanceOf[scala.scalajs.js.Dynamic].value.asInstanceOf[String]
@@ -205,4 +212,40 @@ object World {
   /** no server: a face in the page alone sends nothing */
   val nowhere: Request => Future[Response] =
     r => Future.failed(new IllegalStateException(s"no server to send ${r.method} ${r.path} to"))
+
+  /** the nodes listened to: in a morph, each is kept whole or replaced whole */
+  private[dom] val listened: scala.scalajs.js.Dynamic =
+    scala.scalajs.js.Dynamic.newInstance(scala.scalajs.js.Dynamic.global.WeakSet)()
+  private def listens(n: dom.Node): Boolean = listened.has(n).asInstanceOf[Boolean]
+
+  /**
+   * `old` made like `next`, keeping what it can: a node equal to the new one is kept; text of a text node changed; an
+   * element of the same tag, neither listened to, keeps its node — its attributes made the new ones' (a `<details>`
+   * keeps whether a person opened it), its children morphed position by position, the new ones appended, the extra
+   * ones removed; anything else is the new node. The answer: the node to stand where `old` stood.
+   */
+  def morph(old: dom.Node, next: dom.Node): dom.Node =
+    if (old.isEqualNode(next)) old
+    else if (old.nodeType == dom.Node.TEXT_NODE && next.nodeType == dom.Node.TEXT_NODE) {
+      old.textContent = next.textContent; old
+    } else if (old.nodeType == dom.Node.ELEMENT_NODE && next.nodeType == dom.Node.ELEMENT_NODE &&
+      old.nodeName == next.nodeName && !listens(old) && !listens(next)) {
+      val o = old.asInstanceOf[dom.Element]
+      val n = next.asInstanceOf[dom.Element]
+      val details = o.nodeName.equalsIgnoreCase("details")
+      val gone = (0 until o.attributes.length).map(i => o.attributes(i).name).filterNot(n.hasAttribute)
+      gone.filterNot(a => details && a == "open").foreach(o.removeAttribute)
+      (0 until n.attributes.length).map(i => n.attributes(i)).foreach { a =>
+        if (!(details && a.name == "open") && o.getAttribute(a.name) != a.value) o.setAttribute(a.name, a.value)
+      }
+      val olds = (0 until o.childNodes.length).map(o.childNodes(_)).toVector
+      val news = (0 until n.childNodes.length).map(n.childNodes(_)).toVector
+      olds.zip(news).foreach { case (x, y) =>
+        val kept = morph(x, y)
+        if (!(kept eq x)) o.replaceChild(kept, x)
+      }
+      news.drop(olds.size).foreach(o.appendChild)
+      olds.drop(news.size).foreach(o.removeChild)
+      old
+    } else next
 }

@@ -118,5 +118,20 @@ Inside, the faces are programs over effects of their own, handled inside them â€
 Each has one handler, the browser's (`World`), applied where the face runs its programs (`world`, which a face may
 override to intercept any of them). The machine's state (the step shown, its history) stays the face's.
 
+KEEPING WHAT IS ON THE PAGE (2026-10-25). A step that follows another often shows nearly the same: an event
+(`Meanwhile`) brought a line more to a timeline, a card changed its mark. Drawn again whole, the page would lose what
+was typed, the focus, the scroll. So when the new step offers THE SAME ACTIONS as the one shown (names, labels,
+docs, parameters' schemas, the fields held back or long) with the same history and told views, only its view is
+changed, IN PLACE (`Page.Morph`): a node equal to the new one is kept; an element of the same tag with no listener
+of its own keeps its node, its attributes and children made the new ones', position by position; anything else
+replaced. A node with a listener (a ref, a form, a button) is kept whole or replaced whole, never half. The forms
+of the actions are not touched at all: what is typed stays. And a choice is the CURRENT step's: a kept button or
+form chooses on the step shown now, not on the one that drew it (the same actions, so the same meaning).
+One machine may show program after program (`Session.show(first, done)`): an application that runs its own loop
+(okay-ui's runner) keeps one face, its page kept between screens the same way.
+
+LONG TEXT: an action's fields `long` (`Action.withLong(names*)`, like `withMore`, on the wire too) are drawn as a
+`<textarea>` â€” on the DOM and Laminar faces, on the HTML face.
+
 Accessibility, by `Page`: the problems a live region (`role="alert"`), a field with a problem `aria-invalid`, a
 field's doc its `aria-describedby`, the face `aria-busy` while a rest runs. Focus by default (`Settings.focus`).
