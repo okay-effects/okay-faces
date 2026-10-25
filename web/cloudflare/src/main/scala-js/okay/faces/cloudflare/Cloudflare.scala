@@ -85,7 +85,8 @@ object Cloudflare {
           headers = headers.toJSDictionary))
         stub.fetch(forwarded).asInstanceOf[js.Promise[js.Dynamic]].toFuture
       } else stub.fetch(Wire.url(req), js.Dynamic.literal(method = req.method, headers = headers.toJSDictionary,
-        redirect = "manual", body = if (req.method == "GET" || req.method == "HEAD") js.undefined else req.body: js.Any))
+        redirect = "manual",
+        body = if (req.method == "GET" || req.method == "HEAD") js.undefined else req.body: js.Any))
         .asInstanceOf[js.Promise[js.Dynamic]].toFuture
     }
   }
