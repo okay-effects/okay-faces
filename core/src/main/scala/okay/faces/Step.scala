@@ -28,11 +28,21 @@ object Step {
   }
   /** WHAT A STEP SAYS OF ITSELF, beside its view and actions — one value, so a new option is a new field and no pattern
    * on `Offer` or `Waiting` breaks. `back`: whether the step may be returned to once left; not by default, most steps
-   * are not to be returned to */
-  final case class Options(back: Boolean = false)
+   * are not to be returned to. `at`: the point the program passed on its way here (`Face.Mark`), if it passed one
+   * since the step before — where it can be taken up again */
+  final case class Options(back: Boolean = false, at: Option[Point] = None)
+  /** a point a program can be taken up from: its name, its state as data */
+  final case class Point(name: String, state: okay.effects.json.Json)
   object Options {
     /** a step one may return to */
     val returnable: Options = Options(back = true)
+  }
+  /** the point a program passed on its way to a step, carried by the step it came to */
+  def at[A, M[_]](p: Point, s: Step[A, M], later: (M[Step[A, M]], Step[A, M] => Step[A, M]) => M[Step[A, M]])
+    : Step[A, M] = s match {
+    case w: Waiting[A, M] @unchecked => w.copy(options = w.options.copy(at = Some(p)))
+    case Told(v, next) => Told[A, M](v, later(next, at(p, _, later)))
+    case other => other
   }
   /** told, and going on at once: a face shows it and runs the rest */
   final case class Told[A, M[_]](view: View, next: M[Step[A, M]]) extends Step[A, M]

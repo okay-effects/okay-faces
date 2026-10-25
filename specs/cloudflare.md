@@ -30,17 +30,25 @@ line, serves it on Cloudflare Workers, its sessions Durable Objects. Module `web
 - **The thin page's script** is given by the Worker's entry as text (`okayFacesAsset("/index.js", …)`, wrangler's
   Text rule for `*.txt`), read by `Cloudflare.asset`.
 
-## Where memory is lost
+## Where memory is lost: the state kept, not the way there (2026-10-25)
 
-Cloudflare drops an idle object; a session's continuation (closures) cannot be stored. So a session is its
-JOURNAL: the requests that changed it — the one that opened it, each one but a read, unless refused (a status of 400
-or more) — kept as they reach the face (method, path, query, body and its type; no other header). An object new
-plays its journal through a new service of the same id and is where it was; then answers. The program must be
-deterministic for that: what is not (the clock, the outside world) is to be journaled as effects' results (later).
+Cloudflare drops an idle object; a session's continuation is code (`Frames.Bind(f: X => Prog)` — a function) and is
+never stored. What is stored is DATA the program says it is at: a POINT (`Face.Mark(point, state)`, `mark`), its name
+and its state as JSON. `Durable` makes a program of points: `Durable.loop(name, write, read)(start)(turn)` — a loop of
+a state, the point passed at the start of each turn, `from(point)` the program started at it. The step machine
+carries a point to the step it comes to (`Step.Options.at`), a session tells it (`Session.marked`, the faces'
+`Settings.marked`, `McpFace.served(…, marked)`), a door takes `from` (`Door.html/rest/mcp(…, from = d.from)`).
 
-`Hosting` is a program over the effect `Kept` (`Journal`, `Append`): the session held, or woken by its journal; the
-request answered; what changed it appended. Handlers: the object's storage (`j:<n>`, read once when the object is
-new, appended to after — Cloudflare holds the response until it is stored); a list (`Hosting.kept`, the tests').
+A host keeps of a session (`Saved`): the request that OPENED it; the last POINT its program passed — and when one is
+passed, the requests before it are forgotten; the requests that changed it SINCE (each but a read, unless refused). An
+object new starts the program at the point (or from the start, with no point), plays the opening request and the
+few since, and is where it was: the middle of a turn — a question asked — too. A program with no points is kept by
+all its requests, as before (deterministic, then). An event's move, the clock: their results are in the state at the
+next point.
+
+`Hosting` is a program over the effect `Kept` (`Read`, `Put` of a `Write`: `Opened`, `Pointed`, `Appended`).
+Handlers: the object's storage — `open`, `at`, `j:<n>` (the requests since), read once when the object is new, written
+after (a point deletes the `j:` keys); a value (`Hosting.kept`, `after`: the tests').
 
 ## Deploying
 
@@ -54,7 +62,6 @@ all where they were.
 
 ## Not yet
 
-An event's move (a `Meanwhile` fired) is not journaled: an object woken plays the requests, and the event may fire
-again; a timer that must outlast the object is an alarm (later). A journal's effects' results (the clock); a journal
-grown long, cut by a snapshot when the program can give one; MCP's server-sent requests outside a POST (none: GET is
-405, as on the JVM).
+A timer that must outlast the object is an alarm (later). A point's state that cannot be read back (a program
+changed) starts the program from the start: a migration is the program's (`read` may take older states). MCP's
+server-sent requests outside a POST (none: GET is 405, as on the JVM).

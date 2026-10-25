@@ -26,8 +26,8 @@ import scala.scalajs.js.annotation.JSExportTopLevel
  */
 object Cloudflare {
   private[cloudflare] var doors: Vector[Door] = Vector.empty
-  /** `Hosting`'s answer run on the implementation given: the journal read before, what to append after */
-  private[cloudflare] var answer: (Door, String, Held, Request, Boolean, List[Request]) => (List[Request], Response) =
+  /** `Hosting`'s answer run on the implementation given: what is kept read before, the writes after */
+  private[cloudflare] var answer: (Door, String, Held, Request, Boolean, Saved) => (List[Write], Response) =
     (_, _, _, req, _, _) => (Nil, Response.notFound(req.path))
 
   /** the doors served, on the implementation in scope: the first that a request opens or is of, takes it */
@@ -35,7 +35,7 @@ object Cloudflare {
     this.doors = doors.toVector
     val hosting = new Hosting[F]()(fx)
     type L[X] = okay.effects.Sum[hosting.fx.Pure, Kept, X]
-    answer = (d, id, held, req, opens, journal) => hosting.fx.run(hosting.kept[L, hosting.fx.Pure, Response](journal)(
+    answer = (d, id, held, req, opens, saved) => hosting.fx.run(hosting.kept[L, hosting.fx.Pure, Response](saved)(
       hosting.answer[L](d, id, held, req, opens)(hosting.fx.splitLast[hosting.fx.Pure, Kept]))(
       hosting.fx.splitLast[hosting.fx.Pure, Kept]))
   }
@@ -66,7 +66,7 @@ object Cloudflare {
     }.toJSPromise
 
   /** what no session holds: each door's own answer (a stylesheet), from a session never opened */
-  private lazy val outside: Vector[Request => Response] = doors.map(_.session("-", () => ()))
+  private lazy val outside: Vector[Served] = doors.map(_.session("-", () => (), None))
   private def stateless(req: Request): Response =
     outside.iterator.map(_(req)).find(_.status != 404).getOrElse(Response.notFound(req.path))
 
@@ -93,9 +93,10 @@ object Cloudflare {
 }
 
 /**
- * A SESSION, A DURABLE OBJECT: `Hosting`'s answer, its journal the object's storage (`j:<n>`) — read when the object
- * is new, appended to after; Cloudflare holds the response until what is appended is stored. Its pages' sockets
- * (`…/socket`) held by Cloudflare while the object sleeps (hibernation), each told `moved` when the session changes.
+ * A SESSION, A DURABLE OBJECT: `Hosting`'s answer, what it keeps the object's storage — `open` (the request that
+ * opened it), `at` (the last point its program passed: its state), `j:<n>` (the requests since) — read when the object
+ * is new, written after; Cloudflare holds the response until it is stored. Its pages' sockets (`…/socket`) held by
+ * Cloudflare while the object sleeps (hibernation), each told `moved` when the session changes.
  */
 @JSExportTopLevel("OkayFacesSession")
 class OkayFacesSession(state: js.Dynamic, env: js.Dynamic) extends js.Object {
@@ -113,13 +114,10 @@ class OkayFacesSession(state: js.Dynamic, env: js.Dynamic) extends js.Object {
         state.acceptWebSocket(pair.selectDynamic("1"))
         Future.successful(js.Dynamic.newInstance(g.Response)(null,
           js.Dynamic.literal(status = 101, webSocket = pair.selectDynamic("0"))))
-      case Some(d) => journal.flatMap { rs =>
-          val (appended, response) = Cloudflare.answer(d, id, held, req, opens, rs)
-          Future.traverse(appended) { r =>
-            journaled += 1
-            state.storage.put(f"j:$journaled%09d", Json.print(Hosting.json(r))).asInstanceOf[js.Promise[Unit]].toFuture
-          }.map { _ =>
-            if (appended.nonEmpty) moved()
+      case Some(d) => saved.flatMap { s =>
+          val (writes, response) = Cloudflare.answer(d, id, held, req, opens, s)
+          writes.foldLeft(Future.successful(()))((acc, w) => acc.flatMap(_ => write(w))).map { _ =>
+            if (writes.nonEmpty) moved()
             Wire.response(response)
           }
         }
@@ -134,14 +132,38 @@ class OkayFacesSession(state: js.Dynamic, env: js.Dynamic) extends js.Object {
     scala.util.Try(ws.close(1000, "closed"))
   def webSocketError(ws: js.Dynamic, error: js.Any): Unit = ()
 
-  /** the journal, read only when the session is not held: the object new */
-  private def journal: Future[List[Request]] =
-    if (held.service.nonEmpty) Future.successful(Nil)
-    else state.storage.list(js.Dynamic.literal(prefix = "j:")).asInstanceOf[js.Promise[js.Dynamic]].toFuture.map { m =>
+  private def storage = state.storage
+  private def get(k: String): Future[Option[Json]] = storage.get(k).asInstanceOf[js.Promise[js.UndefOr[String]]]
+    .toFuture.map(_.toOption.flatMap(t => Descent.parse(t).toOption))
+
+  /** what is kept, read only when the session is not held: the object new */
+  private def saved: Future[Saved] =
+    if (held.service.nonEmpty) Future.successful(Saved())
+    else for {
+      opening <- get("open")
+      at <- get("at")
+      m <- storage.list(js.Dynamic.literal(prefix = "j:")).asInstanceOf[js.Promise[js.Dynamic]].toFuture
+    } yield {
       val entries = js.Array.from(m.values().asInstanceOf[js.Iterable[String]]).toList
       journaled = entries.size
-      entries.flatMap(t => Descent.parse(t).toOption).flatMap(Hosting.fromJson)
+      Saved(opening.flatMap(Hosting.fromJson), at.flatMap(Hosting.pointFromJson),
+        entries.flatMap(t => Descent.parse(t).toOption).flatMap(Hosting.fromJson))
     }
+
+  /** a write kept: a point passed — kept, the requests before it deleted */
+  private def write(w: Write): Future[Unit] = w match {
+    case Write.Opened(r) => put("open", Hosting.json(r))
+    case Write.Appended(r) => journaled += 1; put(f"j:$journaled%09d", Hosting.json(r))
+    case Write.Pointed(p) =>
+      // at most 128 keys a delete, Cloudflare's
+      val gone = (1 to journaled).map(n => f"j:$n%09d").grouped(128).toList
+      journaled = 0
+      put("at", Hosting.pointJson(p)).flatMap(_ => gone.foldLeft(Future.successful(())) { (acc, keys) =>
+        acc.flatMap(_ => storage.delete(js.Array(keys: _*)).asInstanceOf[js.Promise[Any]].toFuture.map(_ => ()))
+      })
+  }
+  private def put(k: String, j: Json): Future[Unit] =
+    storage.put(k, Json.print(j)).asInstanceOf[js.Promise[Unit]].toFuture
 }
 
 /** between Cloudflare's requests and responses and okay-http's */

@@ -34,6 +34,9 @@ class Faces[F <: Effects with Singleton](implicit implementation: F) {
     offer[A, R](view, Nil, meanwhile)
   /** show, and go on. (`show`, not `tell`: the standard Writer's word is `tell`, the Reader's `ask`, and a scenario
    * imports both) */
+  /** THE PROGRAM AT A POINT IT CAN BE TAKEN UP FROM, its state as data (`Durable` says it for a loop) */
+  def mark[R[_]](point: String, state: okay.effects.json.Json)(implicit in: In[Face, R]): Unit ! R =
+    perform[Face].apply[R, Unit](Face.Mark[Unit](point, state, u => u))
   def show[R[_]](view: View)(implicit in: In[Face, R]): Unit ! R =
     perform[Face].apply[R, Unit](Face.Show[Unit](view, u => u))
 
@@ -79,6 +82,11 @@ class Faces[F <: Effects with Singleton](implicit implementation: F) {
                 chosen => Step.take(chosen, actions).map(a => k(answer(a))), meanwhile.map(_.map(a => k(answer(a)))),
                 options))
           case Face.Show(view, answer) => pure[Step[A, M], Rest](Step.Told[A, M](view, k(answer(()))))
+          case Face.Mark(point, state, answer) =>
+            flatMap[Step[A, M], Step[A, M], Rest](k(answer(())))((s: Step[A, M]) =>
+              pure[Step[A, M], Rest](Step.at[A, M](Step.Point(point, state), s,
+                (next: M[Step[A, M]], f: Step[A, M] => Step[A, M]) =>
+                  flatMap[Step[A, M], Step[A, M], Rest](next)((x: Step[A, M]) => pure[Step[A, M], Rest](f(x))))))
         }
       })
   }

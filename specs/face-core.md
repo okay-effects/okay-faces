@@ -317,6 +317,14 @@ final case class Chosen(action: String, args: Value)                 // what a f
 final case class Rejected(problems: Problems)                        // unknown action, or the args did not decode
 ```
 
+## Points: where a program can be taken up again (2026-10-25)
+
+`Face.Mark(point, state)` (`mark`): the program is at a point it can be taken up from — a name and a state as DATA.
+A face goes on; the step machine carries the point to the step it comes to (`Step.Options.at`); a session tells it
+(`Session.marked`). `Durable` (a program and its points; `Durable.loop(name, write, read)(start)(turn)`, a loop of a
+state; `from(point)`, the program started there) is how a program says them. Its use: a host that loses its memory
+keeps the last point, not the way there (the continuation is code; the point is data) — specs/cloudflare.md.
+
 ## The step machine — one core for every face
 
 The standard handler of `Face` draws nothing. It turns a program into a machine of steps:

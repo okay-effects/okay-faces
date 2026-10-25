@@ -81,6 +81,10 @@ const json = (url, body) => fetch(base + url, { method: "POST", headers: { "cont
   const called = await mcp({ jsonrpc: "2.0", id: 3, method: "tools/call", params: { name: "add",
     arguments: { title: "Agent's" } } }, init.sid);
   check("MCP: added", /Agent's/.test(JSON.stringify(called.body)));
+  // a turn begun: Milk to be removed, the question asked — then the Worker started again in the middle of it
+  await form(page + "/act/remove", {});
+  await form(page + "/act/milk", {});
+  check("the question asked", /Remove &#39;Milk&#39;\?|Remove 'Milk'\?/.test(await (await fetch(base + page)).text()));
   // every object forgotten: the Worker again, the storage kept
   await stop(); await start();
   check("after a restart, the page: Milk", /Milk/.test(await (await fetch(base + page)).text()));
@@ -89,9 +93,13 @@ const json = (url, body) => fetch(base + url, { method: "POST", headers: { "cont
   const looked = await mcp({ jsonrpc: "2.0", id: 4, method: "tools/call", params: { name: "look", arguments: {} } },
     init.sid);
   check("after a restart, the agent's session: Agent's", /Agent's/.test(JSON.stringify(looked.body)));
+  check("after a restart, the question still asked (the list's point, and the two requests since)",
+    /Remove &#39;Milk&#39;\?|Remove 'Milk'\?/.test(await (await fetch(base + page)).text()));
+  await form(page + "/act/yes", {});
+  check("answered: Milk removed", !/Milk/.test(await (await fetch(base + page)).text()));
   await form(page + "/act/add", { title: "Eggs" });
   const both = await (await fetch(base + page)).text();
-  check("on from there: Milk and Eggs", /Milk/.test(both) && /Eggs/.test(both));
+  check("on from there: Eggs", /Eggs/.test(both) && !/Milk/.test(both));
   check("another session, not this one's", !/Bread/.test(both));
   check("no session: 404", (await fetch(base + "/s/" + "0".repeat(32))).status === 404);
   await stop();

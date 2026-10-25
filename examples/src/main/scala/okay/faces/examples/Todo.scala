@@ -28,6 +28,22 @@ object Todo {
   }
   object Todos {
     val empty: Todos = Todos(Vector.empty, Set.empty)
+    import okay.effects.json.Json
+    /** THE LIST AS DATA: what a host keeps of it (`Durable`) — each item by the form's own shape */
+    def write(t: Todos): Json = Json.obj(
+      "items" -> Json.Arr(t.items.map { case (id, i) =>
+        Json.obj("id" -> Json.num(id), "item" -> Item.shape.encode(i)) }),
+      "done" -> Json.Arr(t.done.toVector.sorted.map(Json.num(_))), "next" -> Json.num(t.next))
+    def read(j: Json): Option[Todos] = {
+      def int(x: Json): Option[Int] = x match { case Json.Num(n) if n.isValidInt => Some(n.toInt); case _ => None }
+      def field(x: Json, k: String): Option[Json] =
+        x match { case o: Json.Obj => o.fields.toMap.get(k); case _ => None }
+      def list(x: Option[Json]): Vector[Json] = x match { case Some(Json.Arr(xs)) => xs; case _ => Vector.empty }
+      for (next <- field(j, "next").flatMap(int)) yield Todos(
+        list(field(j, "items")).flatMap(x => for (id <- field(x, "id").flatMap(int);
+          i <- field(x, "item").flatMap(v => Item.shape.decode(v).toOption)) yield id -> i),
+        list(field(j, "done")).flatMap(int).toSet, next)
+    }
   }
 
   /** what one does at the list */
@@ -76,9 +92,13 @@ object Todo {
   /** THE PROGRAM: a value over the faces' words alone, `A ! Face`; the list is kept as long as one is here, so it has
    * no end — the face's own way out (a window closed, a session dropped, a quit at the terminal) is the way out */
   import okay.faces._
-  val keeping: Unit ! Face = show[Face](about).flatMap(_ => keep(Todos.empty))
-  /** the list offered with what one can do to it */
-  def keep(t: Todos): Unit ! Face = {
+  /** THE LIST, DURABLE: a loop of its state — each turn starts at the point `todo`, the list its data, so a host that
+   * loses its memory keeps the list and starts a turn there again (`Durable`) */
+  val durable: Durable[Unit] = Durable.loop[Todos, Unit]("todo", Todos.write, Todos.read)(Todos.empty)(t =>
+    turn(t).map(Right(_)))
+  val keeping: Unit ! Face = show[Face](about).flatMap(_ => durable.program)
+  /** a turn: the list offered with what one can do to it; the list after */
+  def turn(t: Todos): Todos ! Face = {
     val ids = Shape.choice[Int](t.items.map { case (id, i) => id.toString -> id }: _*)
       .described("Item", Some("an item by its number"))
     val toggle = Action[Int, Move]("ref", "Done / to do", Shape.record(Shape.field("key", ids))(c => c)(c => c),
@@ -90,14 +110,13 @@ object Todo {
     val actions = List(add) ++ (if (t.items.nonEmpty) List(toggle, remove) else Nil) ++
       (if (t.done.nonEmpty) List(clear) else Nil)
     offer[Move, Face](listing(t), actions).flatMap {
-      case Add(item) => show[Face](View.info(s"added: ${item.title}")).flatMap(_ => keep(t.added(item)))
-      case Toggle(id) => keep(t.toggled(id))
+      case Add(item) => show[Face](View.info(s"added: ${item.title}")).map(_ => t.added(item))
+      case Toggle(id) => pure[Todos, Face](t.toggled(id))
       case RemoveOne =>
         choose[Int, Face](View.text("Remove which?"), t.items.toList.map { case (id, i) => i.title -> id }).flatMap(
-          id =>
-            confirm[Face](View.text(s"Remove '${t.titled(id)}'?")).flatMap(yes => keep(if (yes) t.removed(id) else t)))
+          id => confirm[Face](View.text(s"Remove '${t.titled(id)}'?")).map(yes => if (yes) t.removed(id) else t))
       case Clear =>
-        confirm[Face](View.text(s"Clear the ${t.done.size} done?")).flatMap(yes => keep(if (yes) t.cleared else t))
+        confirm[Face](View.text(s"Clear the ${t.done.size} done?")).map(yes => if (yes) t.cleared else t)
     }
   }
 }

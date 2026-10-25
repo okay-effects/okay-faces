@@ -162,14 +162,14 @@ class McpFace[F <: Runner with Singleton](implicit val fx: F) {
    * dialogue — per session, its sessions named by `ids`: a service over `Http`, for a server or a host's door. An
    * elicitation only to a client that takes a stream */
   def served[A](p: Program[A, okay.faces.Face], settings: McpFace.Settings = McpFace.Settings(),
-    path: String = "/mcp", ids: () => String = okay.faces.Sessions.random)
+    path: String = "/mcp", ids: () => String = okay.faces.Sessions.random, marked: Step.Point => Unit = _ => ())
     : okay.http.Request => okay.http.Response ! H = {
     val local = faces.of(p)
     val opening = Step.opening[A, ({ type M[X] = X ! Pure })#M](faces.steps[A, okay.faces.Face, Pure](local), run)
     val instructions = Some(opening.intro.map(Markdown.view(_, settings.vocabulary)).filter(_.nonEmpty)
         .mkString("\n\n")).filter(_.nonEmpty)
     http.service[H](stream => server[A, HL](opening.title.getOrElse("okay"), faces.steps[A, HLF, HL](local.into[HLF]),
-        instructions, settings.copy(elicitation = settings.elicitation && stream)), path, ids).service
+        instructions, settings.copy(elicitation = settings.elicitation && stream), marked), path, ids).service
   }
   type H[X] = okay.effects.Sum[Pure, okay.http.Http, X]
   type HL[X] = okay.effects.Sum[H, Link, X]
@@ -179,9 +179,11 @@ class McpFace[F <: Runner with Singleton](implicit val fx: F) {
    * application's
    * marks is told in the instructions, served at `face://marks`, and shown in the Markdown */
   def server[A, R[_]](name: String, first: Step[A, ({ type L[X] = X ! R })#L] ! R,
-    instructions: Option[String] = None, settings: McpFace.Settings = McpFace.Settings()): servers.Server[R] = {
+    instructions: Option[String] = None, settings: McpFace.Settings = McpFace.Settings(),
+    marked: Step.Point => Unit = _ => ()): servers.Server[R] = {
     import settings.{elicitation, singleTool, version, vocabulary}
     val d = faces.session[A, R](first)
+    d.marked = marked
     val told = if (vocabulary.isEmpty) instructions
     else Some((instructions.toList :+ ("Marks on views, and what they mean:\n" + vocabulary.markdown)).mkString("\n\n"))
     servers.Server[R](name, version, if (singleTool) single[A, R](d, vocabulary) else tools[A, R](d, vocabulary),

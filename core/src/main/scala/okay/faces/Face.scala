@@ -18,6 +18,9 @@ object Face {
     extends Face[X]
   /** show, and go on */
   final case class Show[X](view: View, answer: Unit => X) extends Face[X]
+  /** THE PROGRAM IS AT A POINT IT CAN BE TAKEN UP FROM: the point's name, its state as data — a host that loses its
+   * memory keeps this instead of what led here, and starts the program there again (`Durable`); a face goes on */
+  final case class Mark[X](point: String, state: Json, answer: Unit => X) extends Face[X]
 }
 
 /** what a face sends back: an action's name and its arguments, a JSON object */

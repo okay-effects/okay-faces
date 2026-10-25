@@ -65,4 +65,13 @@ class TodoSuite extends munit.FunSuite {
       case other => fail(s"$other")
     }
   }
+
+  test("the list as data, what a host keeps of it, reads back the same; a turn started at its point goes on there") {
+    import okay.effects.shape.Day
+    val t = Todo.Todos.empty.added(Todo.Item("Milk", Day.parse("2026-10-26").toOption, Some("2 l")))
+      .added(Todo.Item("Bread")).toggled(2)
+    assertEquals(Todo.Todos.read(Todo.Todos.write(t)), Some(t))
+    assert(Todo.durable.from(okay.faces.Step.Point("todo", Todo.Todos.write(t))).nonEmpty)
+    assert(Todo.durable.from(okay.faces.Step.Point("elsewhere", Todo.Todos.write(t))).isEmpty)
+  }
 }

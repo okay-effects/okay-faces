@@ -12,7 +12,7 @@ import okay.faces.rest.RestFace
 object TodoCloudflare {
   def main(args: Array[String]): Unit = Cloudflare.serve(
     Door.shell("To do", Cloudflare.asset("/index.js"), Some(Todo.look)),
-    Door.html(Todo.keeping, HtmlFace.Settings(look = Some(Todo.look)), atRoot = false),
-    Door.rest(Todo.keeping, RestFace.Settings(vocabulary = Todo.marks.vocabulary)),
-    Door.mcp(Todo.keeping, McpFace.Settings(vocabulary = Todo.marks.vocabulary)))
+    Door.html(Todo.keeping, HtmlFace.Settings(look = Some(Todo.look)), atRoot = false, from = Todo.durable.from),
+    Door.rest(Todo.keeping, RestFace.Settings(vocabulary = Todo.marks.vocabulary), from = Todo.durable.from),
+    Door.mcp(Todo.keeping, McpFace.Settings(vocabulary = Todo.marks.vocabulary), from = Todo.durable.from))
 }

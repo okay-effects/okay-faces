@@ -28,9 +28,12 @@ abstract class Session[F <: Effects with Singleton, A, R[_]](val fx: F, over: Vi
   /** told when an event fired while a step waited — the session moved on by itself: a face that can push says so to
    * its counterpart (a page's socket), which asks again; by default nobody is told */
   @volatile var moved: () => Unit = () => ()
+  /** told each point the program passes (`Face.Mark`): where it can be taken up again — a host keeps it */
+  @volatile var marked: Step.Point => Unit = _ => ()
   private def settle(s: Step[A, M]): Step[A, M] ! R = s match {
     case Step.Told(view, next) => told = told :+ view; next.flatMap(settle)
     case w: Step.Waiting[A, M] @unchecked =>
+      w.options.at.foreach(p => marked(p))
       w.listen(next => if (step.contains(w) || step.isEmpty) { fired = Some((w, next)); moved() })
       pure[Step[A, M], R](w)
     case other => pure[Step[A, M], R](other)

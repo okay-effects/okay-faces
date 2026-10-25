@@ -47,11 +47,13 @@ class HtmlFace[F <: Effects with Singleton](implicit val fx: F) {
 
     def routes: List[Route[R]] = List(
       get[R]("/") { (_, _) =>
-        val id = sessions.open((open(), Nil, None)); pure[Response, R](Response.redirect(s"$base/$id"))
+        val d = open(); val id = sessions.open((d, Nil, None)); d.marked = p => settings.marked(id, p)
+        pure[Response, R](Response.redirect(s"$base/$id"))
       },
       // the base itself opens a session too: a service beside others, with `/` taken, has its door at `base`
       get[R](base) { (_, _) =>
-        val id = sessions.open((open(), Nil, None)); pure[Response, R](Response.redirect(s"$base/$id"))
+        val d = open(); val id = sessions.open((d, Nil, None)); d.marked = p => settings.marked(id, p)
+        pure[Response, R](Response.redirect(s"$base/$id"))
       },
       get[R](Html.stylesheetPath) { (_, _) => pure[Response, R](Response.ok(stylesheet, "text/css; charset=utf-8")) },
       get[R](s"$base/:id") { (ps, _) =>
@@ -292,7 +294,8 @@ object Forms {
 object HtmlFace {
   /** THE FACE'S SETTINGS, one value: where its pages are, how they look (the stylesheet and the face's words), how
    * sessions are named (random by default; a test gives `Sessions.counting("s")`) */
-  final case class Settings(base: String = "/s", look: Option[Look] = None, ids: () => String = Sessions.random)
+  final case class Settings(base: String = "/s", look: Option[Look] = None, ids: () => String = Sessions.random,
+    marked: (String, okay.faces.Step.Point) => Unit = (_, _) => ())
   /** over the implementation in scope */
   def apply[F <: Effects with Singleton]()(implicit fx: F): HtmlFace[F] = new HtmlFace[F]()(fx)
   /** THE HANDLER, whole, served: `run(HtmlFace.serve(Noughts.games, port, host))` */
