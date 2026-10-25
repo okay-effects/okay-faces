@@ -146,8 +146,8 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
       } else if (!(before.step eq s.step) || !(before.history eq s.history) || !(before.told eq s.told)) {
         pressed = None
         val first = before.step match { case _: Step.Waiting[A, M] @unchecked => false; case _ => true }
-        // the end in view after a step drawn anew: the first one, or one that follows a person reading the end
-        (if (settings.follow && !first) page(Page.AtEnd[Boolean](b => b)) else pure[Boolean, W](settings.follow))
+        // the end in view after the first step drawn; a step drawn anew is another page, read from its top
+        pure[Boolean, W](settings.follow && first)
           .flatMap(follows => render(s).flatMap(next => swap(at, next).flatMap(_ => later { at = next; busy(drawn, face, s.busy) }))
           .flatMap(_ => s.step match {
             // a new step takes the keyboard, where the face is in the page
