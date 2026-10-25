@@ -21,12 +21,16 @@ import scala.util.{Failure, Success, Try}
  * `transport`: okay-http's `Browser.fetch()` in a page, the server's own service in a test) and time (`Timer`), all
  * handled by `World`. What was typed stays when a choice is refused, here or by the server; the problems are a live
  * region, their fields marked and focused; Escape is the server's back where it offers one.
+ *
+ * PUSHED, where the host can (`push`, `World.socket`; the server's `Listen`): told when the session moved on without
+ * this page, it asks again; while listening works, no polling — as the Laminar remote face.
  */
 class DomRemoteFace[F <: Runner with Singleton](transport: Request => Future[Response], poll: Int = 1000,
-  words: Words = Words.english, settings: DomRemoteFace.Settings = DomRemoteFace.Settings())(implicit val fx: F)
+  words: Words = Words.english, settings: DomRemoteFace.Settings = DomRemoteFace.Settings(),
+  push: Option[World.Push] = None)(implicit val fx: F)
     extends Drawing[F] {
   import fx._
-  val handlers: World[fx.type] = new World[fx.type](transport)(fx)
+  val handlers: World[fx.type] = new World[fx.type](transport, push)(fx)
   import handlers.W
 
   /** the element: a session opened at once, the step shown as it comes */
@@ -103,14 +107,25 @@ class DomRemoteFace[F <: Runner with Singleton](transport: Request => Future[Res
       val s = shown
       if (!s.busy && s.resource.back) call(Request("POST", s"${s.resource.self}/back"), s.resource.self)
     }
-    // a step that listens on the server: asked again every `poll` ms, until it moves on
-    private def again(s: Shown): Unit ! W =
+    // the session listened to, where the host can push: told it moved, the page asks again
+    private var watched: Option[(String, () => Unit)] = None
+    private var pushed = false
+    private def watch(self: String): Unit ! W =
+      if (self.isEmpty || watched.exists(_._1 == self)) unit
+      else later { watched.foreach(_._2()); pushed = false; unit }.flatMap(_ =>
+        perform[Server].apply[W, () => Unit](Server.Listen[() => Unit](self, () => {
+          val now = shown; if (!now.busy && now.resource.self == self) call(Request("GET", self), self)
+        }, up => pushed = up, stop => stop)).flatMap(stop => later { watched = Some(self -> stop); unit }))
+    // a step that listens on the server: asked again every `poll` ms, until it moves on — unless pushed
+    private def again(s: Shown): Unit ! W = watch(s.resource.self).flatMap(_ =>
       if (s.resource.listening && !s.busy)
         perform[Timer].apply[W, Unit](Timer.After[Unit](poll, () => {
           val now = shown
-          if ((now eq s) && now.resource.listening && !now.busy) call(Request("GET", now.resource.self), now.resource.self)
+          if ((now eq s) && now.resource.listening && !now.busy && !pushed)
+            call(Request("GET", now.resource.self), now.resource.self)
+          else if ((now eq s) && pushed) world(again(now))
         }, u => u))
-      else unit
+      else unit)
 
     def render(s: Shown): dom.Node ! W = later {
       drawn = new Drawn(s.busy)
@@ -149,10 +164,10 @@ object DomRemoteFace {
   /** THE THIN PAGE, whole: `DomRemoteFace.mount(Browser.fetch())` — the dialogue on the server behind its REST face at
    * `base`, this page knowing no application; into `#app` or the body */
   def mount[F <: Runner with Singleton](transport: Request => Future[Response], base: String = "/sessions",
-    poll: Int = 1000)(implicit fx: F): Unit =
+    poll: Int = 1000, push: Option[World.Push] = Some(World.socket))(implicit fx: F): Unit =
     DomFace.whenLoaded { () =>
       val root = Option(dom.document.getElementById("app")).getOrElse(dom.document.body)
-      root.appendChild(new DomRemoteFace[F](transport, poll)(fx).element(base))
+      root.appendChild(new DomRemoteFace[F](transport, poll, Words.english, Settings(), push)(fx).element(base))
     }
 }
 

@@ -43,10 +43,11 @@ class McpHttp[F <: Effects with Singleton, S <: Servers[F]](val servers: S) {
         }
       })
 
-  final class Service[R[_]](open: Boolean => servers.Server[({ type L[X] = Sum[R, Link, X] })#L], path: String) {
+  final class Service[R[_]](open: Boolean => servers.Server[({ type L[X] = Sum[R, Link, X] })#L], path: String,
+    ids: () => String = okay.faces.Sessions.random) {
     type RL[X] = Sum[R, Link, X]
     // the sessions, by id: random ids, forgotten when idle an hour, at most a thousand (`Sessions` in core)
-    private val sessions = new okay.faces.Sessions[(Boolean, Parked[R])]()
+    private val sessions = new okay.faces.Sessions[(Boolean, Parked[R])](ids)
     private def messages(body: String): Either[Rpc.Failed, List[String]] = Descent.parse(body) match {
       case Left(e) => Left(Rpc.Failed(Json.Null, Rpc.Code.Parse, e.message))
       case Right(Json.Arr(ms)) => Right(ms.toList.map(m => Json.print(m)))
@@ -117,8 +118,8 @@ class McpHttp[F <: Effects with Singleton, S <: Servers[F]](val servers: S) {
   }
   /** a server per session, at `path`, in the row with `Link` — its tools may ask (`elicit`); `open` is told whether the
    * client accepts a stream, and only then should a server ask */
-  def service[R[_]](open: Boolean => servers.Server[({ type L[X] = Sum[R, Link, X] })#L], path: String = "/mcp")
-    : Service[R] = new Service[R](open, path)
+  def service[R[_]](open: Boolean => servers.Server[({ type L[X] = Sum[R, Link, X] })#L], path: String = "/mcp",
+    ids: () => String = okay.faces.Sessions.random): Service[R] = new Service[R](open, path, ids)
 }
 object McpHttp {
   /** over these servers, their path kept — an `McpFace`'s, so a `Server` it made is one this carries */

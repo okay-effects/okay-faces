@@ -8,40 +8,74 @@ import okay.faces.rest.RestFace
 import okay.http.{Https, Request, Response}
 
 /**
- * A DOOR OF THE APPLICATION: where its sessions are (`base/{id}`), which request opens one, the service of one session
- * by its id — a face's handler, run (`Door.html`, `Door.rest`).
+ * A DOOR OF THE APPLICATION: where its sessions are, which request opens one, which session a request is of (its
+ * path's segment after `base`, or a header — MCP's), the service of one session by its id — a face's handler, run,
+ * told how to say the session moved on by itself (`moved`: a host that can push tells its pages). `Door.html`,
+ * `Door.rest`, `Door.mcp`; `Door.shell`, the thin page, opens none.
  */
-final case class Door(base: String, opens: Request => Boolean, session: String => Request => Response) {
-  /** the session a request is of, if it is of one: the path's segment after the base */
-  def idOf(req: Request): Option[String] =
-    if (!req.path.startsWith(base.stripSuffix("/") + "/")) None
-    else req.path.substring(base.stripSuffix("/").length + 1).split('/').headOption.filter(_.nonEmpty)
-}
+final case class Door(base: String, opens: Request => Boolean, idOf: Request => Option[String],
+  session: (String, () => Unit) => Request => Response)
 
 object Door {
-  /** the program as pages from the server (the HTML face): `/` and `base` open a session. The program made again for
-   * each session (by name): a handler it holds (a ledger in memory) is the session's own, and its journal's */
+  /** the session of a path `base/{id}/…` */
+  def byPath(base: String): Request => Option[String] = req =>
+    if (!req.path.startsWith(base.stripSuffix("/") + "/")) None
+    else req.path.substring(base.stripSuffix("/").length + 1).split('/').headOption.filter(_.nonEmpty)
+
+  /** the program as pages from the server (the HTML face): `base` opens a session, and `/` too unless `atRoot` is
+   * false (the thin page there). The program made again for each session (by name): a handler it holds (a ledger in
+   * memory) is the session's own, and its journal's */
   def html[F <: Runner with Singleton, A](p: => Program[A, okay.faces.Face],
-    settings: HtmlFace.Settings = HtmlFace.Settings())(implicit fx: F): Door = {
+    settings: HtmlFace.Settings = HtmlFace.Settings(), atRoot: Boolean = true)(implicit fx: F): Door = {
     val face = new HtmlFace[F]()(fx)
     val https = new Https[face.fx.type]()(face.fx)
-    Door(settings.base, r => r.method == "GET" && (r.path == "/" || r.path == settings.base), { id =>
-      val service = face.handle[A](p, settings.copy(ids = () => id))
+    Door(settings.base, r => r.method == "GET" && ((atRoot && r.path == "/") || r.path == settings.base),
+      byPath(settings.base), { (id, _) =>
+        val service = face.handle[A](p, settings.copy(ids = () => id))
+        req => face.fx.run(https.scripted(Nil).apply[face.H, face.fx.Pure, Response](service(req))(
+          face.fx.splitLast[face.fx.Pure, okay.http.Http]))._2
+      })
+  }
+
+  /** the program as a JSON API with links (the REST face; the thin page's): `POST base` opens a session; the program
+   * made again for each session, as `html`'s; a session that moves on by itself says so */
+  def rest[F <: Runner with Singleton, A](p: => Program[A, okay.faces.Face],
+    settings: RestFace.Settings = RestFace.Settings())(implicit fx: F): Door = {
+    val face = new RestFace[F]()(fx)
+    val https = new Https[face.fx.type]()(face.fx)
+    Door(settings.base, r => r.method == "POST" && r.path == settings.base, byPath(settings.base), { (id, moved) =>
+      val service = face.handle[A](p, settings.copy(ids = () => id, moved = _ => moved()))
       req => face.fx.run(https.scripted(Nil).apply[face.H, face.fx.Pure, Response](service(req))(
         face.fx.splitLast[face.fx.Pure, okay.http.Http]))._2
     })
   }
 
-  /** the program as a JSON API with links (the REST face; the thin page's): `POST base` opens a session; the program
-   * made again for each session, as `html`'s */
-  def rest[F <: Runner with Singleton, A](p: => Program[A, okay.faces.Face],
-    settings: RestFace.Settings = RestFace.Settings())(implicit fx: F): Door = {
-    val face = new RestFace[F]()(fx)
+  /** the program served to agents (the MCP face, streamable HTTP at `path`): an `initialize` with no session opens
+   * one, the session of a request its `Mcp-Session-Id`; the program made again for each session */
+  def mcp[F <: Runner with Singleton, A](p: => Program[A, okay.faces.Face],
+    settings: okay.faces.mcp.McpFace.Settings = okay.faces.mcp.McpFace.Settings(), path: String = "/mcp")(
+    implicit fx: F): Door = {
+    val face = new okay.faces.mcp.McpFace[F]()(fx)
     val https = new Https[face.fx.type]()(face.fx)
-    Door(settings.base, r => r.method == "POST" && r.path == settings.base, { id =>
-      val service = face.handle[A](p, settings.copy(ids = () => id))
-      req => face.fx.run(https.scripted(Nil).apply[face.H, face.fx.Pure, Response](service(req))(
-        face.fx.splitLast[face.fx.Pure, okay.http.Http]))._2
+    Door(path,
+      r => r.method == "POST" && r.path == path && r.header("mcp-session-id").isEmpty && r.body.contains("initialize"),
+      r => if (r.path == path) r.header("mcp-session-id") else None, { (id, _) =>
+        val service = face.served[A](p, settings, path, () => id)
+        req => face.fx.run(https.scripted(Nil).apply[face.H, face.fx.Pure, Response](service(req))(
+          face.fx.splitLast[face.fx.Pure, okay.http.Http]))._2
+      })
+  }
+
+  /** THE THIN PAGE (the remote face's script, `RemotePage`), knowing no program: the page at `/`, its script at
+   * `/index.js`, the look — no session; the program's sessions behind `Door.rest` */
+  def shell[F <: Runner with Singleton](title: String, script: () => Either[String, String],
+    look: Option[okay.faces.Look] = None)(implicit fx: F): Door = {
+    val shell = new okay.faces.rest.Shell[F]()(fx)
+    val https = new Https[shell.fx.type]()(shell.fx)
+    val service = shell.handle(title, look, "/" -> script)
+    Door("/", _ => false, _ => None, { (_, _) =>
+      req => shell.fx.run(https.scripted(Nil).apply[shell.H, shell.fx.Pure, Response](service(req))(
+        shell.fx.splitLast[shell.fx.Pure, okay.http.Http]))._2
     })
   }
 }
@@ -53,8 +87,8 @@ object Kept {
   final case class Append[X](request: Request, answer: Unit => X) extends Kept[X]
 }
 
-/** a session in a host's memory: its service, while the host is awake */
-final class Held {
+/** a session in a host's memory: its service, while the host is awake; how to tell its pages it moved */
+final class Held(val moved: () => Unit = () => ()) {
   var service: Option[Request => Response] = None
 }
 
@@ -78,7 +112,7 @@ class Hosting[F <: Effects with Singleton](implicit implementation: F) {
     val woken: (Request => Response) ! R = held.service match {
       case Some(s) => pure[Request => Response, R](s)
       case None => journal[R].map { rs =>
-          val s = door.session(id)
+          val s = door.session(id, held.moved)
           rs.foreach(r => s(r))
           held.service = Some(s)
           s
@@ -105,24 +139,27 @@ class Hosting[F <: Effects with Singleton](implicit implementation: F) {
 }
 
 object Hosting {
-  /** a request as kept: what a face reads of it — its method, path, query, body and its body's type */
-  def kept(r: Request): Request =
-    r.copy(headers = r.header("content-type").map(t => Map("content-type" -> List(t))).getOrElse(Map.empty))
+  /** what a face reads of a request's headers, kept with it: its body's type, what it accepts, MCP's session */
+  val headers: Set[String] = Set("content-type", "accept", "mcp-session-id", "mcp-protocol-version")
+  /** a request as kept: its method, path, query, body and those headers */
+  def kept(r: Request): Request = r.copy(headers = r.headers.filter { case (k, _) => headers(k.toLowerCase) })
 
   def json(r: Request): Json = Json.obj("method" -> Json.Str(r.method), "path" -> Json.Str(r.path),
     "query" -> Json.Obj(r.query.toVector.map { case (k, vs) => k -> Json.Arr(vs.toVector.map(Json.Str(_))) }),
-    "type" -> Json.Str(r.header("content-type").getOrElse("")), "body" -> Json.Str(r.body))
+    "headers" -> Json.Obj(r.headers.toVector.map { case (k, vs) => k -> Json.Arr(vs.toVector.map(Json.Str(_))) }),
+    "body" -> Json.Str(r.body))
+
+  private def lists(j: Option[Json]): Map[String, List[String]] = j.collect { case o: Json.Obj =>
+    o.fields.toMap.map { case (k, v) =>
+      k -> (v match { case Json.Arr(xs) => xs.toList.collect { case Json.Str(x) => x }; case _ => Nil }) }
+  }.getOrElse(Map.empty)
 
   def fromJson(j: Json): Option[Request] = j match {
     case o: Json.Obj =>
       val fs = o.fields.toMap
       def s(k: String) = fs.get(k).collect { case Json.Str(v) => v }
-      for (m <- s("method"); p <- s("path")) yield Request(m, p,
-        fs.get("query").collect { case q: Json.Obj => q.fields.toMap.map { case (k, v) =>
-          k -> (v match { case Json.Arr(xs) => xs.toList.collect { case Json.Str(x) => x }; case _ => Nil }) } }
-          .getOrElse(Map.empty),
-        s("type").filter(_.nonEmpty).map(t => Map("content-type" -> List(t))).getOrElse(Map.empty),
-        s("body").getOrElse(""))
+      for (m <- s("method"); p <- s("path"))
+        yield Request(m, p, lists(fs.get("query")), lists(fs.get("headers")), s("body").getOrElse(""))
     case _ => None
   }
 }

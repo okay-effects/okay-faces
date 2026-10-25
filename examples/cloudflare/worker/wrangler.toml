@@ -1,8 +1,10 @@
 # an okay-faces application on Cloudflare Workers: `npx wrangler dev`, `npx wrangler deploy`
-# main.js: `sbt -Dplatforms=js examplesCloudflareJS/fullLinkJS`, copied here by deploy.sh
+# main.js: the application's Cloudflare main, linked as an ES module (fullLinkJS), copied beside entry.js;
+# page.js.txt: the thin page's script (okay.faces.laminar.RemotePage, linked), if the application has it
 name = "okay-faces-todo"
 main = "entry.js"
 compatibility_date = "2026-10-01"
+rules = [{ type = "Text", globs = ["**/*.txt"], fallthrough = true }]
 
 [[durable_objects.bindings]]
 name = "OKAY_FACES_SESSIONS"

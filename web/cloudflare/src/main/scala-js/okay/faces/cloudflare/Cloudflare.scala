@@ -17,8 +17,11 @@ import scala.scalajs.js.annotation.JSExportTopLevel
  * opens one; the rest (the look's stylesheet) answered in the Worker, keeping nothing. In the object, `Hosting`'s
  * program, its journal the object's storage: read when the object wakes, appended to as the session changes.
  *
- * The application's main for Cloudflare, one line — `Cloudflare.serve(Door.html(program), Door.rest(program))` —
- * linked as an ES module; the Worker's `entry.js` and `wrangler.toml` are `template/`'s. Nothing of this in the
+ * The application's main for Cloudflare, one line — `Cloudflare.serve(Door.html(program), Door.rest(program),
+ * Door.mcp(program), Door.shell(title, Cloudflare.asset("/index.js")))` — linked as an ES module; the Worker's
+ * `entry.js` and `wrangler.toml` are `template/`'s, the thin page's script given by `entry.js` (`okayFacesAsset`).
+ * A page's socket to its session (`base/{id}/socket`) is held by the object (hibernation): told each time the session
+ * changes — by a choice from anywhere, or by an event while it waited. Nothing of this in the
  * program, nor in its other mains: a way of deploying it, beside the JVM's server and the page alone.
  */
 object Cloudflare {
@@ -36,6 +39,14 @@ object Cloudflare {
       hosting.answer[L](d, id, held, req, opens)(hosting.fx.splitLast[hosting.fx.Pure, Kept]))(
       hosting.fx.splitLast[hosting.fx.Pure, Kept]))
   }
+
+  /** what the Worker's entry gives as text — the thin page's script — by path */
+  private val assets = scala.collection.mutable.Map.empty[String, String]
+  @JSExportTopLevel("okayFacesAsset")
+  def putAsset(path: String, text: String): Unit = assets(path) = text
+  /** an asset, read when asked: the entry gives it at its start, before any request */
+  def asset(path: String): () => Either[String, String] =
+    () => assets.get(path).toRight(s"no $path: give it in entry.js — okayFacesAsset(\"$path\", text)")
 
   private[cloudflare] val doorHeader = "x-okay-faces-door"
   private[cloudflare] val idHeader = "x-okay-faces-session"
@@ -55,7 +66,7 @@ object Cloudflare {
     }.toJSPromise
 
   /** what no session holds: each door's own answer (a stylesheet), from a session never opened */
-  private lazy val outside: Vector[Request => Response] = doors.map(_.session("-"))
+  private lazy val outside: Vector[Request => Response] = doors.map(_.session("-", () => ()))
   private def stateless(req: Request): Response =
     outside.iterator.map(_(req)).find(_.status != 404).getOrElse(Response.notFound(req.path))
 
@@ -67,8 +78,13 @@ object Cloudflare {
       val stub = ns.get(ns.idFromName(s"${doors(door).base}/$id"))
       val headers = req.headers.map { case (k, vs) => k -> vs.mkString(", ") } ++ Map(doorHeader -> door.toString,
         idHeader -> id) ++ (if (opens) Map(opensHeader -> "1") else Map.empty)
-      // a redirect is the browser's to follow (the HTML face's post-redirect-get), not the stub's
-      stub.fetch(Wire.url(req), js.Dynamic.literal(method = req.method, headers = headers.toJSDictionary,
+      // a redirect is the browser's to follow (the HTML face's post-redirect-get), not the stub's; a socket's upgrade
+      // goes as it came
+      if (req.header("upgrade").exists(_.equalsIgnoreCase("websocket"))) {
+        val forwarded = js.Dynamic.newInstance(g.Request)(Wire.url(req), js.Dynamic.literal(method = "GET",
+          headers = headers.toJSDictionary))
+        stub.fetch(forwarded).asInstanceOf[js.Promise[js.Dynamic]].toFuture
+      } else stub.fetch(Wire.url(req), js.Dynamic.literal(method = req.method, headers = headers.toJSDictionary,
         redirect = "manual", body = if (req.method == "GET" || req.method == "HEAD") js.undefined else req.body: js.Any))
         .asInstanceOf[js.Promise[js.Dynamic]].toFuture
     }
@@ -77,11 +93,12 @@ object Cloudflare {
 
 /**
  * A SESSION, A DURABLE OBJECT: `Hosting`'s answer, its journal the object's storage (`j:<n>`) — read when the object
- * is new, appended to after; Cloudflare holds the response until what is appended is stored.
+ * is new, appended to after; Cloudflare holds the response until what is appended is stored. Its pages' sockets
+ * (`…/socket`) held by Cloudflare while the object sleeps (hibernation), each told `moved` when the session changes.
  */
 @JSExportTopLevel("OkayFacesSession")
 class OkayFacesSession(state: js.Dynamic, env: js.Dynamic) extends js.Object {
-  private val held = new Held
+  private val held = new Held(() => moved())
   private var journaled = 0
 
   def fetch(request: js.Dynamic): js.Promise[js.Dynamic] = Wire.request(request).flatMap { req =>
@@ -90,15 +107,31 @@ class OkayFacesSession(state: js.Dynamic, env: js.Dynamic) extends js.Object {
     val opens = req.header(Cloudflare.opensHeader).contains("1")
     door match {
       case None => Future.successful(Wire.response(Response(400, Map.empty, "not a session's request")))
+      case Some(_) if req.path.endsWith("/socket") && req.header("upgrade").exists(_.equalsIgnoreCase("websocket")) =>
+        val pair = js.Dynamic.newInstance(g.WebSocketPair)()
+        state.acceptWebSocket(pair.selectDynamic("1"))
+        Future.successful(js.Dynamic.newInstance(g.Response)(null,
+          js.Dynamic.literal(status = 101, webSocket = pair.selectDynamic("0"))))
       case Some(d) => journal.flatMap { rs =>
           val (appended, response) = Cloudflare.answer(d, id, held, req, opens, rs)
           Future.traverse(appended) { r =>
             journaled += 1
             state.storage.put(f"j:$journaled%09d", Json.print(Hosting.json(r))).asInstanceOf[js.Promise[Unit]].toFuture
-          }.map(_ => Wire.response(response))
+          }.map { _ =>
+            if (appended.nonEmpty) moved()
+            Wire.response(response)
+          }
         }
     }
   }.toJSPromise
+
+  /** the session moved: every page listening told */
+  private def moved(): Unit = state.getWebSockets().asInstanceOf[js.Array[js.Dynamic]].foreach(ws =>
+    scala.util.Try(ws.send("moved")))
+  def webSocketMessage(ws: js.Dynamic, message: js.Any): Unit = ()
+  def webSocketClose(ws: js.Dynamic, code: Int, reason: String, wasClean: Boolean): Unit =
+    scala.util.Try(ws.close(1000, "closed"))
+  def webSocketError(ws: js.Dynamic, error: js.Any): Unit = ()
 
   /** the journal, read only when the session is not held: the object new */
   private def journal: Future[List[Request]] =

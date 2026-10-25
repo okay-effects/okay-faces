@@ -139,6 +139,16 @@ lazy val examplesRemote = CrossProject("examplesRemote", file("examples/remote")
   .jsConfigure(p =>
     if (platformsAsked("js")) p.withId("examplesRemoteJS").dependsOn(laminar.js) else p.withId("examplesRemoteJS"))
 
+/** THE THIN PAGE WITH NO LIBRARY: the DOM remote face's script alone (`okay.faces.dom.DomRemotePage`), as
+ * `examplesRemote` is the Laminar one's — either serves a program behind the REST face, the JVM's or Cloudflare's */
+lazy val examplesRemoteDom = CrossProject("examplesRemoteDom", file("examples/remote-dom"))(JSPlatform)
+  .crossType(CrossType.Pure)
+  .settings(crossBuilt, name := "okay-faces-examples-remote-dom", publish / skip := true,
+    scalaJSUseMainModuleInitializer := true, Compile / mainClass := Some("okay.faces.dom.DomRemotePage"))
+  .jsConfigure(p =>
+    if (platformsAsked("js")) p.withId("examplesRemoteDomJS").dependsOn(domFace.js)
+    else p.withId("examplesRemoteDomJS"))
+
 /** THE LAMINAR FACE, Scala.js only: a Step machine as a Laminar element — the view drawn, the actions buttons and
  * forms,
  * a click is `resume`; and THE REMOTE FACE, the same page over a dialogue behind the REST face, through okay-http's
@@ -181,7 +191,7 @@ lazy val domFace = CrossProject("dom", file("web/dom"))(JSPlatform).crossType(Cr
  * its journal played again when the object wakes — a way to deploy the same program, not a part of it
  * (specs/cloudflare.md). `sbt -Dplatforms=js cloudflareJS/compile`; the example `examplesCloudflareJS` */
 lazy val cloudflare = crossBoth("cloudflare", "web/cloudflare", can = Set("js"))
-  .dependsOn(core, rest, html).settings(name := "okay-faces-cloudflare",
+  .dependsOn(core, rest, html, mcp).settings(name := "okay-faces-cloudflare",
     libraryDependencies ++= Seq("io.github.okay-effects" %%% "okay-http" % okayHttp,
       "io.github.okay-effects" %%% "okay-effects-machine" % okayEffects % Test))
   // the Worker and the Durable Object, Scala.js's alone; `Hosting`, the session's program, everywhere
@@ -254,7 +264,7 @@ lazy val root = (project in file(".")).aggregate((Seq[ProjectReference](swing, d
       .flatMap(_.projects.values.map(p => p: ProjectReference)) ++
     ((if (platformsAsked("js"))
         Seq[ProjectReference](laminar.js, domFace.js, airstream.js, waypoint.js, examplesTodo.js, examplesRemote.js,
-          examplesCloudflare.js)
+          examplesCloudflare.js, examplesRemoteDom.js)
       else Nil))): _*).settings(name := "okay-faces-root", publish / skip := true, crossScalaVersions := Nil)
 
 /** a release into `target/pages-maven/`, on Scala 3.3 and 2.13 — `sbt -Dplatforms=jvm,js publishPages`: the

@@ -158,6 +158,22 @@ class McpFace[F <: Runner with Singleton](implicit val fx: F) {
   type L[X] = okay.effects.Sum[Pure, Link, X]
   type LF[X] = okay.effects.Sum[L, Face, X]
 
+  /** THE HANDLER OVER HTTP: the program served to agents by MCP's streamable HTTP at `path` (`McpHttp`), a server — a
+   * dialogue — per session, its sessions named by `ids`: a service over `Http`, for a server or a host's door. An
+   * elicitation only to a client that takes a stream */
+  def served[A](p: Program[A, okay.faces.Face], settings: McpFace.Settings = McpFace.Settings(),
+    path: String = "/mcp", ids: () => String = okay.faces.Sessions.random): okay.http.Request => okay.http.Response ! H = {
+    val local = faces.of(p)
+    val opening = Step.opening[A, ({ type M[X] = X ! Pure })#M](faces.steps[A, okay.faces.Face, Pure](local), run)
+    val instructions = Some(opening.intro.map(Markdown.view(_, settings.vocabulary)).filter(_.nonEmpty)
+        .mkString("\n\n")).filter(_.nonEmpty)
+    http.service[H](stream => server[A, HL](opening.title.getOrElse("okay"), faces.steps[A, HLF, HL](local.into[HLF]),
+        instructions, settings.copy(elicitation = settings.elicitation && stream)), path, ids).service
+  }
+  type H[X] = okay.effects.Sum[Pure, okay.http.Http, X]
+  type HL[X] = okay.effects.Sum[H, Link, X]
+  type HLF[X] = okay.effects.Sum[HL, Face, X]
+
   /** a server of the dialogue, named; `first` the steps over the server's own row; the `vocabulary` of the
    * application's
    * marks is told in the instructions, served at `face://marks`, and shown in the Markdown */

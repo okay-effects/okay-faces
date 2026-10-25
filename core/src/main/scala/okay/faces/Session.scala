@@ -25,10 +25,14 @@ abstract class Session[F <: Effects with Singleton, A, R[_]](val fx: F, over: Vi
   private var step: Option[Step[A, M]] = None
   /** an event fired while a step waited: its rest, run at the next `current` — a session hears when next asked */
   @volatile private var fired: Option[(Step.Waiting[A, M], M[Step[A, M]])] = None
+  /** told when an event fired while a step waited — the session moved on by itself: a face that can push says so to
+   * its counterpart (a page's socket), which asks again; by default nobody is told */
+  @volatile var moved: () => Unit = () => ()
   private def settle(s: Step[A, M]): Step[A, M] ! R = s match {
     case Step.Told(view, next) => told = told :+ view; next.flatMap(settle)
     case w: Step.Waiting[A, M] @unchecked =>
-      w.listen(next => if (step.contains(w) || step.isEmpty) fired = Some((w, next))); pure[Step[A, M], R](w)
+      w.listen(next => if (step.contains(w) || step.isEmpty) { fired = Some((w, next)); moved() })
+      pure[Step[A, M], R](w)
     case other => pure[Step[A, M], R](other)
   }
   /** the step, the first one run when first asked; an event that fired meanwhile moved it on */

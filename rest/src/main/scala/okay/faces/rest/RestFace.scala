@@ -53,7 +53,7 @@ class RestFace[F <: Runner with Singleton](implicit val fx: F) {
         pure[Response, R](if (vocabulary.isEmpty) Trouble(404, "no marks").response else Response.json(vocabulary.json))
       },
       post[R](base) { (_, _) =>
-        val d = open(); val id = sessions.open(d);
+        val d = open(); val id = sessions.open(d); d.moved = () => settings.moved(id)
         resource(id, d).map(_.response(201).header("Location", s"$base/$id"))
       },
       get[R](s"$base/:id") { (ps, _) =>
@@ -111,10 +111,11 @@ class RestFace[F <: Runner with Singleton](implicit val fx: F) {
 object RestFace {
   /** THE FACE'S SETTINGS, one value: where the sessions are, the vocabulary of the application's marks (served at
    * `base/marks`), how sessions are named (random by default; a test gives `Sessions.counting("s")`); for `serve`, the
-   * thin page at `/` (`page`, the remote face's script, linked) and its look */
+   * thin page at `/` (`page`, the remote face's script, linked) and its look; `moved`: told a session's id when it
+   * moved on by itself (an event while it waited) — a host that can push tells its pages */
   final case class Settings(base: String = "/sessions", vocabulary: Vocabulary = Vocabulary.empty,
     ids: () => String = Sessions.random, look: Option[Look] = None,
-    page: Option[() => Either[String, String]] = None)
+    page: Option[() => Either[String, String]] = None, moved: String => Unit = _ => ())
   /** over the implementation in scope */
   def apply[F <: Runner with Singleton]()(implicit fx: F): RestFace[F] = new RestFace[F]()(fx)
   /** THE HANDLER, whole, served: `run(RestFace.serve(Noughts.games, port, host))` */

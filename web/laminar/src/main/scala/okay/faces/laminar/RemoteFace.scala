@@ -16,9 +16,14 @@ import scala.concurrent.{ExecutionContext, Future}
  * affordances, whether back is possible and whether it is done; `POST self/act/{name}` with the arguments is a choice,
  * `400` with problems leaves the step; `POST self/back`. A choice is checked against the schema before it travels.
  * The transport is a function, `Browser.fetch()` in a page, the server's own service in a test.
+ *
+ * PUSHED, where the host can (`push`, `RemoteFace.socket`): a socket to the session (`self/socket`) says when it moved
+ * on without this page — an event while it waited, another counterpart's choice — and the page asks again; while the
+ * socket is up, no polling. Where there is none (the JVM's server), the socket fails and the page polls as before:
+ * the same page for every host.
  */
 class RemoteFace(transport: Request => Future[Response], poll: Int = 1000,
-  words: okay.faces.Words = okay.faces.Words.english)(
+  words: okay.faces.Words = okay.faces.Words.english, push: Option[RemoteFace.Push] = None)(
   implicit ec: ExecutionContext) {
   import RemoteFace.Shown
   private val nothing = Shown("", View.Empty, Nil, back = false, done = false, Nil, busy = true)
@@ -45,10 +50,27 @@ class RemoteFace(transport: Request => Future[Response], poll: Int = 1000,
       case Right(args) => call(Request.json("POST", s"${s.self}/act/${chosen.action}", args), s.self)
     }
     def back(s: Shown): Unit = if (!s.busy && s.back) call(Request("POST", s"${s.self}/back"), s.self)
-    // a step that listens on the server: asked again every `poll` ms, until it moves on
-    def again(s: Shown): Unit = if (s.listening && !s.busy) dom.window.setTimeout(() => {
-        val now = state.now(); if ((now eq s) && now.listening && !now.busy) call(Request("GET", now.self), now.self)
-      }, poll.toDouble)
+    // the session's socket, where the host has one: up, it says when the session moved; then the page asks again
+    var watched: Option[(String, () => Unit)] = None
+    var pushed = false
+    def watch(self: String): Unit = push.foreach { listen =>
+      if (self.nonEmpty && !watched.exists(_._1 == self)) {
+        watched.foreach(_._2())
+        pushed = false
+        watched = Some(self -> listen(self, () => {
+          val now = state.now(); if (!now.busy && now.self == self) call(Request("GET", self), self)
+        }, up => pushed = up))
+      }
+    }
+    // a step that listens on the server: asked again every `poll` ms, until it moves on — unless pushed
+    def again(s: Shown): Unit = {
+      watch(s.self)
+      if (s.listening && !s.busy) dom.window.setTimeout(() => {
+          val now = state.now()
+          if ((now eq s) && now.listening && !now.busy && !pushed) call(Request("GET", now.self), now.self)
+          else if ((now eq s) && pushed) again(now)
+        }, poll.toDouble)
+    }
 
     div(cls := Role.Face.classes,
       onMountCallback(_ => call(Request("POST", base), base)),
@@ -79,10 +101,28 @@ class RemoteFace(transport: Request => Future[Response], poll: Int = 1000,
 object RemoteFace {
   /** THE THIN PAGE, whole: `RemoteFace.mount()` — the dialogue on the server behind its REST face at `base`, this page
    * knowing no application; into `#app` or the body */
-  def mount(transport: Request => Future[Response], base: String = "/sessions", poll: Int = 1000)(
-    implicit ec: ExecutionContext): Unit = {
+  def mount(transport: Request => Future[Response], base: String = "/sessions", poll: Int = 1000,
+    push: Option[Push] = Some(socket))(implicit ec: ExecutionContext): Unit = {
     val root = Option(dom.document.getElementById("app")).getOrElse(dom.document.body)
-    renderOnDomContentLoaded(root, new RemoteFace(transport, poll).element(base))
+    renderOnDomContentLoaded(root, new RemoteFace(transport, poll, okay.faces.Words.english, push).element(base))
+  }
+
+  /** a session listened to: `(self, moved, up) => stop` — `moved` when it moved on, `up` whether listening works */
+  type Push = (String, () => Unit, Boolean => Unit) => (() => Unit)
+  /** THE SESSION'S SOCKET: a WebSocket at `self/socket` on this page's host, each message a move; none (refused,
+   * closed), and `up` is false — the page polls */
+  val socket: Push = (self, moved, up) => {
+    val loc = dom.window.location
+    val scheme = if (loc.protocol == "https:") "wss" else "ws"
+    scala.util.Try(new dom.WebSocket(s"$scheme://${loc.host}$self/socket")).toOption match {
+      case None => up(false); () => ()
+      case Some(ws) =>
+        ws.onopen = (_: dom.Event) => up(true)
+        ws.onmessage = (_: dom.MessageEvent) => moved()
+        ws.onclose = (_: dom.CloseEvent) => up(false)
+        ws.onerror = (_: dom.Event) => up(false)
+        () => { ws.onclose = null; ws.close() }
+    }
   }
   def apply(transport: Request => Future[Response], poll: Int = 1000)(implicit ec: ExecutionContext): RemoteFace =
     new RemoteFace(transport, poll)

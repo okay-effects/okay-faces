@@ -6,9 +6,13 @@ line, serves it on Cloudflare Workers, its sessions Durable Objects. Module `web
 
 ## The shape
 
-- **A door** (`Door`): where a face's sessions are (`base/{id}`), which request opens one, the service of a session
-  by its id — `Door.html(program, settings)` (the HTML face; `/` and `base` open), `Door.rest(program, settings)`
-  (the REST face, the thin page's; `POST base` opens). A session's service is the face's own handler, run on the
+- **A door** (`Door`): where a face's sessions are, which request opens one, which session a request is of (its
+  path's segment after `base` — `Door.byPath` — or a header), the service of a session by its id —
+  `Door.html(program, settings, atRoot)` (the HTML face; `base`, and `/` unless `atRoot` is false, open),
+  `Door.rest(program, settings)` (the REST face, the thin page's; `POST base` opens), `Door.mcp(program, settings,
+  path)` (the MCP face over streamable HTTP, `McpFace.served`; an `initialize` with no `Mcp-Session-Id` opens, the
+  header names the session), `Door.shell(title, script, look)` (the thin page at `/`, its script at `/index.js`, no
+  session). A session's service is the face's own handler, run on the
   implementation given, its ids fixed to the one id. The program is taken BY NAME, made again for each session: a
   handler it holds (a ledger in memory) is the session's own — never shared, never doubled by a journal played.
 - **The Worker** (`Cloudflare.serve(doors*)`, its `fetch` exported as `okayFacesFetch`): a request that opens a
@@ -16,6 +20,15 @@ line, serves it on Cloudflare Workers, its sessions Durable Objects. Module `web
   to its object; anything else (the look's `/okay.css`) answered in the Worker by a session never opened. The door,
   the id, whether it opens: headers to the object. A redirect is the browser's to follow, never the stub's.
 - **A session, a Durable Object** (`OkayFacesSession`, binding `OKAY_FACES_SESSIONS`): `Hosting`'s program.
+- **Pushed** (2026-10-25): a page's socket to its session, `base/{id}/socket`, accepted by the object's state
+  (hibernation: held by Cloudflare while the object sleeps); each socket told `moved` when the session changes — a
+  request that changed it (journaled), from anywhere, or an event while it waited (core's `Session.moved`, the REST
+  face's `Settings.moved`). The thin pages — the Laminar one (`RemoteFace`, `RemotePage`) and the DOM one
+  (`DomRemoteFace`, `DomRemotePage`, its `Server.Listen` handled by `World`) — open the socket (`socket`, by default
+  in `mount`), ask again when told, and do not poll while it is up; where the host has none (the JVM's server) the
+  socket fails and they poll as before: one page for every host.
+- **The thin page's script** is given by the Worker's entry as text (`okayFacesAsset("/index.js", …)`, wrangler's
+  Text rule for `*.txt`), read by `Cloudflare.asset`.
 
 ## Where memory is lost
 
@@ -32,12 +45,16 @@ new, appended to after — Cloudflare holds the response until it is stored); a 
 ## Deploying
 
 The application's Cloudflare main, linked as an ES module (`fullLinkJS`), copied as `main.js` beside
-`template/entry.js` and `template/wrangler.toml` (the binding, the SQLite class); `wrangler dev`, `wrangler deploy`.
-The example: `examples/cloudflare` — `TodoCloudflare`, `deploy.sh`, `e2e.js` (a session by its pages, one by its API,
-the Worker started again: both where they were).
+`template/entry.js` and `template/wrangler.toml` (the binding, the SQLite class, the Text rule); the thin page's
+script (linked on its own) as `page.js.txt`; `wrangler dev`, `wrangler deploy`. The example: `examples/cloudflare` —
+`TodoCloudflare` (the thin page at `/`, the pages at `/s`, the API at `/sessions`, the tools at `/mcp`), `deploy.sh`
+(`PAGE=dom` for the thin page with no library), `e2e.js`: a session by its pages, one by its API, one by an agent;
+the thin page in a headless Chrome told by its socket when its session changed elsewhere; the Worker started again:
+all where they were.
 
 ## Not yet
 
-The thin page served from the Worker (its script linked into the Worker); `Meanwhile` pushed over a WebSocket held by
-the object (hibernation) instead of polled; the MCP face's door; a journal's effects' results (the clock); a journal
-grown long, cut by a snapshot when the program can give one.
+An event's move (a `Meanwhile` fired) is not journaled: an object woken plays the requests, and the event may fire
+again; a timer that must outlast the object is an alarm (later). A journal's effects' results (the clock); a journal
+grown long, cut by a snapshot when the program can give one; MCP's server-sent requests outside a POST (none: GET is
+405, as on the JVM).

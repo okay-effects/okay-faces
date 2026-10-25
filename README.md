@@ -77,8 +77,9 @@ The block above is compiled and run by `sbt docsCheck/test`.
 
 Where it runs is a deploying, not a face: the page alone (a static host), a server on the JVM (`HtmlFace.serve`,
 `RestFace.serve`), or **Cloudflare Workers** — `web/cloudflare`, one more main, one line,
-`Cloudflare.serve(Door.html(program), Door.rest(program))`: each session a Durable Object, its journal of requests
-played again when the object wakes ([specs/cloudflare.md](specs/cloudflare.md), `examples/cloudflare`).
+`Cloudflare.serve(Door.shell(…), Door.html(program), Door.rest(program), Door.mcp(program))`: each session a Durable
+Object, its journal of requests played again when the object wakes; the thin page told by its session's socket when
+it moved, polling where a host has none ([specs/cloudflare.md](specs/cloudflare.md), `examples/cloudflare`).
 
 ## How it works
 

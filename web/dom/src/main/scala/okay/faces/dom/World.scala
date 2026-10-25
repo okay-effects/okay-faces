@@ -82,6 +82,10 @@ object Keys {
 sealed trait Server[X]
 object Server {
   final case class Send[X](request: Request, reply: Try[Response] => Unit, answer: Unit => X) extends Server[X]
+  /** the session at `self` listened to, where the host can push: `moved` when it moved on, `up` whether listening
+   * works; the answer how to stop */
+  final case class Listen[X](self: String, moved: () => Unit, up: Boolean => Unit, answer: (() => Unit) => X)
+    extends Server[X]
 }
 
 /** TIME: `act` after `ms` milliseconds */
@@ -95,7 +99,8 @@ object Timer {
  * calls — the DOM, its history, focus, keys, a timer, and `transport` for the server (none, by default: a face in the
  * page alone). `world` runs a program of the faces' row with all of them.
  */
-class World[F <: Runner with Singleton](transport: Request => Future[Response] = World.nowhere)(implicit val fx: F) {
+class World[F <: Runner with Singleton](transport: Request => Future[Response] = World.nowhere,
+  push: Option[World.Push] = None)(implicit val fx: F) {
   import fx._
   type P1[X] = Sum[Void, Page, X]
   type P2[X] = Sum[P1, History, X]
@@ -210,6 +215,10 @@ class World[F <: Runner with Singleton](transport: Request => Future[Response] =
         case Server.Send(request, reply, answer) =>
           // the reply on the browser's own queue, as an event of the page would come
           transport(request).onComplete(reply)(scala.scalajs.concurrent.JSExecutionContext.queue); answer(())
+        case Server.Listen(self, moved, up, answer) => push match {
+            case Some(listen) => answer(listen(self, moved, up))
+            case None => up(false); answer(() => ())
+          }
       }
     })
 
@@ -227,6 +236,24 @@ class World[F <: Runner with Singleton](transport: Request => Future[Response] =
 }
 
 object World {
+  /** a session listened to: `(self, moved, up) => stop` */
+  type Push = (String, () => Unit, Boolean => Unit) => (() => Unit)
+  /** THE SESSION'S SOCKET: a WebSocket at `self/socket` on this page's host, each message a move; none (refused,
+   * closed), and `up` is false — the page polls (the Laminar remote face's `socket`, the same) */
+  val socket: Push = (self, moved, up) => {
+    val loc = dom.window.location
+    val scheme = if (loc.protocol == "https:") "wss" else "ws"
+    scala.util.Try(new dom.WebSocket(s"$scheme://${loc.host}$self/socket")).toOption match {
+      case None => up(false); () => ()
+      case Some(ws) =>
+        ws.onopen = (_: dom.Event) => up(true)
+        ws.onmessage = (_: dom.MessageEvent) => moved()
+        ws.onclose = (_: dom.CloseEvent) => up(false)
+        ws.onerror = (_: dom.Event) => up(false)
+        () => { ws.onclose = null; ws.close() }
+    }
+  }
+
   /** no server: a face in the page alone sends nothing */
   val nowhere: Request => Future[Response] =
     r => Future.failed(new IllegalStateException(s"no server to send ${r.method} ${r.path} to"))
