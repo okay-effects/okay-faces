@@ -129,4 +129,12 @@ class KeepingSuite extends munit.FunSuite {
     later.foreach(_())
     assertEquals(got, List(Tick(7), Pressed(2)), "made on the next")
   }
+
+  test("a face that follows: the end asked and scrolled to as the view grows (jsdom: no layout, nothing breaks)") {
+    val bus = Meanwhile.manual[Int]
+    val root = mounted(face.element(steps[String, F, Void](timeline(bus, 1)), (_: String) => (),
+      DomFace.Settings(follow = true)))
+    bus.fire(2); bus.fire(3)
+    assertEquals(root.querySelectorAll(".okay-view p").length, 3)
+  }
 }

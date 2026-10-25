@@ -21,6 +21,10 @@ object Page {
   /** a place for a node to come: a comment, matched by no selector */
   final case class Place[X](answer: dom.Node => X) extends Page[X]
   final case class Swap[X](old: dom.Node, next: dom.Node, answer: Unit => X) extends Page[X]
+  /** whether the page is scrolled to its end (within a line or two): a person reading what comes last */
+  final case class AtEnd[X](answer: Boolean => X) extends Page[X]
+  /** the page scrolled to its end: what came last in view */
+  final case class ToEnd[X](answer: Unit => X) extends Page[X]
   /** `old` made `next` IN PLACE: what is equal kept, the rest changed or replaced (`World.morph`); the node now there */
   final case class Morph[X](old: dom.Node, next: dom.Node, answer: dom.Node => X) extends Page[X]
   /** `child` into `parent`, before `before` or last */
@@ -112,6 +116,11 @@ class World[F <: Runner with Singleton](transport: Request => Future[Response] =
         case Page.Place(answer) => answer(dom.document.createComment(""))
         case Page.Swap(old, next, answer) =>
           if (old.parentNode != null) old.parentNode.replaceChild(next, old); answer(())
+        case Page.AtEnd(answer) =>
+          val doc = dom.document.documentElement
+          answer(dom.window.innerHeight + dom.window.pageYOffset >= doc.scrollHeight - 96)
+        case Page.ToEnd(answer) =>
+          dom.window.scrollTo(0, dom.document.documentElement.scrollHeight); answer(())
         case Page.Morph(old, next, answer) =>
           val kept = World.morph(old, next)
           if (!(kept eq old) && old.parentNode != null) old.parentNode.replaceChild(kept, old)

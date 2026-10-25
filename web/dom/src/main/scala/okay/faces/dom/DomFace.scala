@@ -133,21 +133,28 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
         // the same actions: the view changed in place, the forms untouched — what is typed stays
         val w = s.step.asInstanceOf[Step.Waiting[A, M]]
         for {
+          // the end in view, if a person was reading it (`Settings.follow`): what comes last, as in a conversation
+          end <- if (settings.follow) page(Page.AtEnd[Boolean](b => b)) else pure[Boolean, W](false)
           next <- viewOf(w)
           now <- page(Page.Morph[dom.Node](viewAt, next, n => n))
           _ <- later { viewAt = now; problems(drawn, s.problems, at, focus = false) }
           _ <- busy(drawn, face, s.busy)
+          _ <- if (end) page(Page.ToEnd[Unit](u => u)) else unit
           // a press made meanwhile: on this step, which offers what the one pressed offered
           _ <- later { if (!s.busy) pressed.foreach { c => pressed = None; chooseNow(c) }; unit }
         } yield ()
       } else if (!(before.step eq s.step) || !(before.history eq s.history) || !(before.told eq s.told)) {
         pressed = None
+        val follows =
+          settings.follow && (before.step match { case _: Step.Waiting[A, M] @unchecked => false; case _ => true })
         render(s).flatMap(next => swap(at, next).flatMap(_ => later { at = next; busy(drawn, face, s.busy) }))
           .flatMap(_ => s.step match {
             // a new step takes the keyboard, where the face is in the page
             case _: Step.Waiting[A, M] @unchecked if settings.focus && face.isConnected => focusStep(at)
             case _ => unit
           })
+          // the first step drawn of a face that follows: its end in view
+          .flatMap(_ => if (follows && face.isConnected) page(Page.ToEnd[Unit](u => u)) else unit)
       }
       else
         (if (before.problems != s.problems) problems(drawn, s.problems, at, settings.focus && face.isConnected)
@@ -251,8 +258,10 @@ object DomFace {
     Set[String]) = (a.name, a.label, a.doc, a.params.erased, a.more, a.long)
   /** THE FACE'S SETTINGS: the Laminar face's — how it looks (a `<style>` and the face's words), whether a step is an
    * entry of the browser's history (its back button then goes back a step) — and whether the face moves the keyboard
-   * (a new step's first field, a problem's field) */
-  final case class Settings(look: Option[Look] = None, browserHistory: Boolean = false, focus: Boolean = true)
+   * (a new step's first field, a problem's field); whether it FOLLOWS what comes last — a step that grows keeps the
+   * page's end in view when a person was at the end, as a conversation does (specs/web.md) */
+  final case class Settings(look: Option[Look] = None, browserHistory: Boolean = false, focus: Boolean = true,
+    follow: Boolean = false)
   /** over the implementation in scope */
   def apply[F <: Runner with Singleton]()(implicit fx: F): DomFace[F] = new DomFace[F]()(fx)
   /** THE HANDLER, whole, in the page: `DomFace.mount(Noughts.games)` */
