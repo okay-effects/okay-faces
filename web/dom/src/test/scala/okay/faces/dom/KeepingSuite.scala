@@ -107,4 +107,26 @@ class KeepingSuite extends munit.FunSuite {
     assertEquals(q(root, "#f-title").asInstanceOf[dom.html.Input].value, "kept")
     assert(root.querySelector(".okay-done") == null, "no end drawn between programs")
   }
+
+  test("a press while the face is busy with an event is not lost: it is made on the step that comes of it") {
+    val session = face.session[Any]()
+    val root = mounted(session.element)
+    val bus = Meanwhile.manual[Int]
+    var got = List.empty[Any]
+    var later: Option[() => Unit] = None
+    // one screen a program, answered by a press or the event — the next program comes later, as a future's would
+    def once(n: Int): Got ! F = offer[Got, F](View.text(s"at $n"), List(Action.plain[Got]("press", "Press")(Pressed(n))),
+      bus.meanwhile.map(i => Tick(i): Got))
+    def show(n: Int): Unit = session.show(steps[Any, F, Void](once(n).asInstanceOf[Any ! F]), (a: Any) => {
+      got :+= a
+      later = Some(() => show(n + 1))
+    })
+    show(1)
+    bus.fire(7) // the screen answered by the event; the face busy until the next program shows
+    assertEquals(got, List(Tick(7)))
+    q(root, "button[data-action=press]").click() // pressed meanwhile
+    assertEquals(got, List(Tick(7)), "not on the old step")
+    later.foreach(_())
+    assertEquals(got, List(Tick(7), Pressed(2)), "made on the next")
+  }
 }

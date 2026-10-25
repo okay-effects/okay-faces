@@ -99,6 +99,8 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
     private var viewAt: dom.Node = null
     private var drawn: Drawn = new Drawn(true)
     private var unlisten: () => Unit = () => ()
+    // a press while the face was busy with an event: kept for the next step, if it offers the same
+    private var pressed: Option[Chosen] = None
 
     def element(first: M[Step[A, M]]): dom.html.Element = {
       open()
@@ -135,14 +137,18 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
           now <- page(Page.Morph[dom.Node](viewAt, next, n => n))
           _ <- later { viewAt = now; problems(drawn, s.problems, at, focus = false) }
           _ <- busy(drawn, face, s.busy)
+          // a press made meanwhile: on this step, which offers what the one pressed offered
+          _ <- later { if (!s.busy) pressed.foreach { c => pressed = None; chooseNow(c) }; unit }
         } yield ()
-      } else if (!(before.step eq s.step) || !(before.history eq s.history) || !(before.told eq s.told))
+      } else if (!(before.step eq s.step) || !(before.history eq s.history) || !(before.told eq s.told)) {
+        pressed = None
         render(s).flatMap(next => swap(at, next).flatMap(_ => later { at = next; busy(drawn, face, s.busy) }))
           .flatMap(_ => s.step match {
             // a new step takes the keyboard, where the face is in the page
             case _: Step.Waiting[A, M] @unchecked if settings.focus && face.isConnected => focusStep(at)
             case _ => unit
           })
+      }
       else
         (if (before.problems != s.problems) problems(drawn, s.problems, at, settings.focus && face.isConnected)
          else unit).flatMap(_ => if (before.busy != s.busy) busy(drawn, face, s.busy) else unit)
@@ -163,7 +169,8 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
         unlisten = w.listen { next =>
           val s = shown
           if ((s.step eq w) && !s.busy) {
-            world(set(s.copy(busy = true)))
+            // busy, but nothing disabled: an event is no press — a press made meanwhile goes to the step it brings
+            shown = s.copy(busy = true)
             lower(next)(settle(_, Vector.empty, if (w.back) w :: s.history else s.history))
           }
         }
@@ -203,9 +210,11 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
       else None
       el("section", cls(Role.View.classes))(List(view(w.view, ref)))
     }
-    /** a choice on the step shown now: a button kept from an earlier step of the same actions means the same */
+    /** a choice on the step shown now: a button kept from an earlier step of the same actions means the same; made
+     * while the face is busy with an event, kept for the step that comes of it */
     private def chooseNow(chosen: Chosen): Unit = shown.step match {
-      case w: Step.Waiting[A, M] @unchecked => choose(w, chosen)
+      case w: Step.Waiting[A, M] @unchecked if !shown.busy => choose(w, chosen)
+      case _ if shown.busy => pressed = Some(chosen)
       case _ => ()
     }
 
