@@ -110,7 +110,9 @@ class World[F <: Runner with Singleton](transport: Request => Future[Response] =
       def ret(a: A): A ! Rest = pure(a)
       def answer[X](op: Page[X]): X = op match {
         case Page.Element(tag, attrs, children, answer) =>
-          val e = dom.document.createElement(tag).asInstanceOf[dom.html.Element]
+          // AN SVG ELEMENT is asked as `svg:<tag>`: made in SVG's namespace (a picture, `View.Picture`)
+          val e = (if (tag.startsWith("svg:")) dom.document.createElementNS("http://www.w3.org/2000/svg", tag.drop(4))
+            else dom.document.createElement(tag)).asInstanceOf[dom.html.Element]
           attrs.foreach { case (k, v) => e.setAttribute(k, v) }
           children.foreach(e.appendChild)
           answer(e)

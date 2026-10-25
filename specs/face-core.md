@@ -215,8 +215,19 @@ object View {
   final case class Link(label: String, url: String) extends View             // a page elsewhere: where to check
   final case class Datum(v: Value, schema: Option[Schema]) extends View      // a structured value shown as it is
   final case class Masked(hint: String) extends View                         // a secret NOT shown ("•••• 4821")
+  final case class Picture(width: Int, height: Int, shapes: Vector[Picture.Shape], text: String) extends View
 }
 ```
+
+`Picture(width, height, shapes, text)` — ADDED 2026-10-25 (Coinpath's flow diagram): a picture the program DESCRIBES,
+as data — boxes, bands and labels on a `width` × `height` canvas — never markup and never a script, so it has equality,
+crosses a wire (`ViewJson`) and holds nothing a face must sanitise. `Box(x, y, w, h, mark, title)`; `Band(x0, y0, x1,
+y1, thickness, mark, title)` — a flow from the point (x0, y0) to (x1, y1), `thickness` wide, its curve the face's;
+`Label(x, y, text, anchor)` (`start`, `middle`, `end`). A shape's `mark` is the application's word, as `Marked`'s:
+the face gives it the class `okay-mark-<mark>` and draws it in the current colour, so the application's style says
+what the mark looks like and the view still says no colour. `text` is the picture in words, what a text face shows.
+Each face draws it its way: Laminar and the DOM face an `<svg>` (`viewBox` the canvas, its width the page's: readable
+on a phone), the same markup in both; the HTML face the same `<svg>` as text; the terminal, Swing and MCP the `text`.
 
 DECIDED: semantic only, no layout, no colour, no widths. Like semantic HTML or Markdown, not like CSS. Layout hints,
 when Laminar or okay-ui need them, are a separate layer added then. A `View` never contains a function and never

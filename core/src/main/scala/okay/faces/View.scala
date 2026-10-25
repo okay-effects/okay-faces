@@ -40,6 +40,47 @@ object View {
   /** a view marked with the application's own word — "price", "overdue" — for a style's rule by `Role.Mark(mark)`;
    * a face shows it as the view within, marked, and the style says what the mark looks like */
   final case class Marked(mark: String, view: View) extends View
+  /** A PICTURE THE PROGRAM DESCRIBES, as data (specs/face-core.md "View"): shapes on a `width` × `height` canvas, each
+   * marked with the application's word for its look; `text` the picture in words, for a face with no pictures */
+  final case class Picture(width: Int, height: Int, shapes: Vector[Picture.Shape], text: String) extends View
+  object Picture {
+    sealed trait Shape
+    /** a box: its corner, its size */
+    final case class Box(x: Double, y: Double, w: Double, h: Double, mark: String, title: String) extends Shape
+    /** a flow from (x0, y0) to (x1, y1), `thickness` wide; its curve is the face's */
+    final case class Band(x0: Double, y0: Double, x1: Double, y1: Double, thickness: Double, mark: String,
+      title: String) extends Shape
+    /** a text at (x, y), anchored at its `start`, `middle` or `end` */
+    final case class Label(x: Double, y: Double, text: String, anchor: String = "start") extends Shape
+
+    /** a number as an SVG attribute writes it: at most two decimals, no exponent */
+    def n(d: Double): String = {
+      val r = BigDecimal(d).setScale(2, BigDecimal.RoundingMode.HALF_UP).bigDecimal.stripTrailingZeros.toPlainString
+      if (r == "-0") "0" else r
+    }
+    /** a band's outline as SVG path data: its top edge a curve, down its end, its bottom edge back */
+    def band(b: Band): String = {
+      val h = b.thickness / 2
+      val mx = (b.x0 + b.x1) / 2
+      s"M${n(b.x0)},${n(b.y0 - h)} C${n(mx)},${n(b.y0 - h)} ${n(mx)},${n(b.y1 - h)} ${n(b.x1)},${n(b.y1 - h)} " +
+        s"L${n(b.x1)},${n(b.y1 + h)} C${n(mx)},${n(b.y1 + h)} ${n(mx)},${n(b.y0 + h)} ${n(b.x0)},${n(b.y0 + h)} Z"
+    }
+    /** THE PICTURE AS SVG TEXT — the HTML face's, and the markup the Laminar and DOM faces make: `esc` escapes text */
+    def svg(p: Picture, esc: String => String): String =
+      s"""<div class="okay-picture-frame"><svg class="okay-picture" viewBox="0 0 ${p.width} ${p.height}">""" +
+        s"""<desc>${esc(p.text)}</desc>""" +
+        p.shapes.map {
+          case Box(x, y, w, h, m, t) => s"""<rect class="${cls(m)}" x="${n(x)}" y="${n(y)}" width="${n(w)}" """ +
+              s"""height="${n(h)}"><title>${esc(t)}</title></rect>"""
+          case b @ Band(_, _, _, _, _, m, t) =>
+            s"""<path class="${cls(m)} okay-picture-band" d="${band(b)}"><title>${esc(t)}</title></path>"""
+          case Label(x, y, t, a) => s"""<text class="okay-picture-label" x="${n(x)}" y="${n(y)}" """ +
+              s"""text-anchor="$a">${esc(t)}</text>"""
+        }.mkString + "</svg></div>"
+
+    /** a mark's class, as `Marked`'s */
+    def cls(mark: String): String = if (mark.isEmpty) "okay-picture-shape" else s"okay-picture-shape okay-mark-$mark"
+  }
 
   def text(s: String): View = Text(s)
   def heading(s: String, level: Int = 1): View = Heading(level, s)

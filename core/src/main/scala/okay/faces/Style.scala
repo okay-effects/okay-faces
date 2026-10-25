@@ -54,6 +54,8 @@ object Role {
   case object Back extends Role(List("back"))
   /** the fields a form holds back, under "Options": `Action.more` */
   case object More extends Role(List("more"))
+  /** a picture the program describes: `View.Picture` */
+  case object Picture extends Role(List("picture"))
   /** the application's own: a `View.Marked(mark, _)`; its rule the application's, in its `Style`, so the vocabulary
    * of parts stays the library's and the marks are said where they are styled */
   final case class Mark(mark: String) extends Role(List("mark", "mark-" + mark))
@@ -61,7 +63,7 @@ object Role {
   val all: List[Role] = List(Face, View, Told, Text) ++ (1 to 3).map(Heading(_)) ++
     List(okay.faces.View.Notice.Info, okay.faces.View.Notice.Warning, okay.faces.View.Notice.Problem).map(Notice(_)) ++
     List(Fields, Label, Table, Items, Group, GroupTitle, Ref, Link, Datum, Masked, Problems, Actions, Action, Form, Doc,
-      Field, Back, More)
+      Field, Back, More, Picture)
   /** a role by its most specific class, "okay-heading-1"; a mark by its name, "okay-mark-price" */
   val byClass: Map[String, Role] = all.map(r => r.cls -> r).toMap
   def ofClass(cls: String): Option[Role] =
@@ -233,7 +235,9 @@ object Css {
       ".okay-table{border-collapse:collapse}.okay-form,.okay-field{display:flex;flex-direction:column}" +
       ".okay-field{align-items:flex-start}" +
       ".okay-action{border:0;font:inherit;cursor:pointer}.okay-back{border:0;font:inherit;cursor:pointer}" +
-      ".okay-more>summary{cursor:pointer}"
+      ".okay-more>summary{cursor:pointer}" +
+      ".okay-picture{display:block;width:100%;height:auto}.okay-picture-shape{fill:currentColor}" +
+      ".okay-picture-band{fill-opacity:.55}.okay-picture-label{fill:var(--okay-fg);font-size:12px}"
     val marks = look.style.rules.keys.collect { case m: Role.Mark => m }.toList.sortBy(_.mark)
     val blocks = (Role.all ++ marks).flatMap { role =>
       val r = look.style(role)

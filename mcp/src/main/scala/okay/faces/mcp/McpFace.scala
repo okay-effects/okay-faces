@@ -195,6 +195,7 @@ object Markdown {
       case View.Link(label, url) => s"[$label]($url)"
       case View.Datum(json, _) => "```json\n" + Json.pretty(json) + "\n```"
       case View.Masked(hint) => hint
+      case View.Picture(_, _, _, text) => text
       case View.Marked(m, x) if vocabulary.has(m) =>
         x match {
           case View.Text(_) | View.Masked(_) | View.Ref(_, _) | View.Link(_, _) | View.Heading(_, _) =>

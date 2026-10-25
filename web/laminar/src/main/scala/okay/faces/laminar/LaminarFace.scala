@@ -173,6 +173,19 @@ object Views {
       else a(cls := Role.Link.classes, href := url, label)
     case View.Datum(json, _) => pre(cls := Role.Datum.classes, Json.pretty(json))
     case View.Masked(hint) => span(cls := Role.Masked.classes, hint)
+    // A PICTURE THE PROGRAM DESCRIBES: an <svg> of its shapes, the markup of `View.Picture.svg`
+    case p: View.Picture =>
+      import View.Picture.{Band, Box, Label, cls => mark, n}
+      div(cls := "okay-picture-frame", svg.svg(svg.cls := "okay-picture", svg.viewBox := s"0 0 ${p.width} ${p.height}",
+        svg.desc(p.text),
+        p.shapes.map {
+          case Box(x, y, w, h, m, t) => svg.rect(svg.cls := mark(m), svg.x := n(x), svg.y := n(y), svg.width := n(w),
+              svg.height := n(h), svg.titleTag(t))
+          case b @ Band(_, _, _, _, _, m, t) =>
+            svg.path(svg.cls := s"${mark(m)} okay-picture-band", svg.d := View.Picture.band(b), svg.titleTag(t))
+          case Label(x, y, t, a) => svg.text(svg.cls := "okay-picture-label", svg.x := n(x), svg.y := n(y),
+              svg.textAnchor := a, t)
+        }))
     case View.Marked(mark, x) => span(cls := Role.Mark(mark).classes, element(x, ref))
   }
 }

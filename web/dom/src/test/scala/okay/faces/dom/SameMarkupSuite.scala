@@ -140,6 +140,11 @@ class SameMarkupSuite extends munit.FunSuite {
         press("button.okay-back"),
         both(typeInto("f-name", "Bo"), typeInto("f-age", "20"), submit("submit")),
         press("button[data-action=yes]"))),
+    Scenario("a picture: boxes, bands and labels, the same <svg> on both faces",
+      _.steps(show[F](View.stack(View.heading("Where it went"), View.Picture(320, 100, Vector(
+        View.Picture.Box(0, 10, 10, 80, "start", "the start"), View.Picture.Band(10, 50, 300, 30, 20, "exchange", "5"),
+        View.Picture.Label(306, 34, "Binance", "end")), "5 to Binance")))),
+      Nil),
     Scenario("views: headings, text, notices, fields, a table with and without heads, items, refs, links, masked",
       _.steps(show[F](View.stack(View.heading("One"), View.heading("Two", 2), View.heading("Three", 3),
         View.text("a text"), View.info("i"), View.warning("w"), View.problem("p"),

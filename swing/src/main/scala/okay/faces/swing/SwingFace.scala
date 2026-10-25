@@ -310,6 +310,10 @@ object Views {
       a.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12)); named(a, Role.Datum.cls)
     case View.Link(l, url) => val c = new JLabel(s"$l <$url>"); c.setToolTipText(url); named(c, Role.Link.cls)
     case View.Masked(hint) => named(new JLabel(hint), Role.Masked.cls)
+    // A PICTURE IN WORDS, as the terminal shows it
+    case View.Picture(_, _, _, text) =>
+      named(new JLabel("<html>" + text.replace("&", "&amp;").replace("<", "&lt;").replace("\n", "<br>") + "</html>"),
+        Role.Picture.cls)
     case View.Marked(mark, x) =>
       val c = component(x, ref); c.setName(Role.Mark(mark).cls); c // the mark's rule dresses it, not its own
   }
@@ -341,6 +345,7 @@ object Views {
     case View.Link(l, url) => s"$l <$url>"
     case View.Datum(json, _) => Json.print(json)
     case View.Masked(hint) => hint
+    case View.Picture(_, _, _, text) => text
     case View.Marked(_, x) => text(x)
   }
   private def wrapped(s: String): JTextArea = {

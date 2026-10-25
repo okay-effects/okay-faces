@@ -314,6 +314,18 @@ trait Drawing[F <: Runner with Singleton] {
       else el("a", cls(Role.Link.classes), "href" -> url)(List(txt(label)))
     case View.Datum(json, _) => el("pre", cls(Role.Datum.classes))(List(txt(Json.pretty(json))))
     case View.Masked(hint) => el("span", cls(Role.Masked.classes))(List(txt(hint)))
+    // A PICTURE THE PROGRAM DESCRIBES: an <svg> of its shapes, the Laminar face's markup
+    case p: View.Picture =>
+      import View.Picture.{Band, Box, Label, cls => mark, n}
+      el("div", cls("okay-picture-frame"))(List(el("svg:svg", cls("okay-picture"),
+        "viewBox" -> s"0 0 ${p.width} ${p.height}")(el("svg:desc")(List(txt(p.text))) :: p.shapes.toList.map {
+        case Box(x, y, w, h, m, t) => el("svg:rect", cls(mark(m)), "x" -> n(x), "y" -> n(y), "width" -> n(w),
+            "height" -> n(h))(List(el("svg:title")(List(txt(t)))))
+        case b @ Band(_, _, _, _, _, m, t) => el("svg:path", cls(s"${mark(m)} okay-picture-band"),
+            "d" -> View.Picture.band(b))(List(el("svg:title")(List(txt(t)))))
+        case Label(x, y, t, a) => el("svg:text", cls("okay-picture-label"), "x" -> n(x), "y" -> n(y),
+            "text-anchor" -> a)(List(txt(t)))
+      })))
     case View.Marked(mark, x) => el("span", cls(Role.Mark(mark).classes))(List(view(x, ref)))
   }
   /** a `View` as a node, drawn now */

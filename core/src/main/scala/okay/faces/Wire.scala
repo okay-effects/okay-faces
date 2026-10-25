@@ -58,6 +58,37 @@ object ViewJson {
         "schema" -> Schema.shape.encode(s)))
     case View.Masked(hint) => Json.obj("type" -> Json.Str("masked"), "hint" -> Json.Str(hint))
     case View.Marked(mark, v) => Json.obj("type" -> Json.Str("marked"), "mark" -> Json.Str(mark), "view" -> encode(v))
+    case View.Picture(w, h, shapes, text) => Json.obj("type" -> Json.Str("picture"), "width" -> Json.num(w),
+        "height" -> Json.num(h), "text" -> Json.Str(text), "shapes" -> Json.Arr(shapes.map(shape)))
+  }
+  private def d(x: Double): Json = Json.Num(BigDecimal(x))
+  private def shape(s: View.Picture.Shape): Json = s match {
+    case View.Picture.Box(x, y, w, h, m, t) => Json.obj("shape" -> Json.Str("box"), "x" -> d(x), "y" -> d(y),
+        "w" -> d(w), "h" -> d(h), "mark" -> Json.Str(m), "title" -> Json.Str(t))
+    case View.Picture.Band(x0, y0, x1, y1, th, m, t) => Json.obj("shape" -> Json.Str("band"), "x0" -> d(x0),
+        "y0" -> d(y0), "x1" -> d(x1), "y1" -> d(y1), "thickness" -> d(th), "mark" -> Json.Str(m),
+        "title" -> Json.Str(t))
+    case View.Picture.Label(x, y, text, anchor) => Json.obj("shape" -> Json.Str("label"), "x" -> d(x), "y" -> d(y),
+        "text" -> Json.Str(text), "anchor" -> Json.Str(anchor))
+  }
+  private def num(o: Json.Obj, k: String): Either[String, Double] =
+    o.get(k) match { case Some(Json.Num(n)) => Right(n.toDouble); case _ => Left(s"no $k") }
+  private def unshape(j: Json): Either[String, View.Picture.Shape] = j match {
+    case o: Json.Obj => o.get("shape") match {
+        case Some(Json.Str("box")) => for {
+            x <- num(o, "x"); y <- num(o, "y"); w <- num(o, "w"); h <- num(o, "h"); m <- str(o, "mark")
+            t <- str(o, "title")
+          } yield View.Picture.Box(x, y, w, h, m, t)
+        case Some(Json.Str("band")) => for {
+            x0 <- num(o, "x0"); y0 <- num(o, "y0"); x1 <- num(o, "x1"); y1 <- num(o, "y1")
+            th <- num(o, "thickness"); m <- str(o, "mark"); t <- str(o, "title")
+          } yield View.Picture.Band(x0, y0, x1, y1, th, m, t)
+        case Some(Json.Str("label")) => for {
+            x <- num(o, "x"); y <- num(o, "y"); t <- str(o, "text"); a <- str(o, "anchor")
+          } yield View.Picture.Label(x, y, t, a)
+        case _ => Left("a shape has a shape")
+      }
+    case _ => Left("a shape is an object")
   }
 
   def decode(j: Json): Either[String, View] = j match {
@@ -99,6 +130,10 @@ object ViewJson {
                 Schema.shape.decode(s).left.map(okay.effects.shape.Problem.render).map(sc => View.Datum(v, Some(sc)))
             })
         case Some(Json.Str("masked")) => str(o, "hint").map(View.Masked(_))
+        case Some(Json.Str("picture")) => for {
+            w <- int(o, "width"); h <- int(o, "height"); t <- str(o, "text")
+            shapes <- arr(o, "shapes").flatMap(xs => all(xs.map(unshape)))
+          } yield View.Picture(w, h, shapes, t)
         case Some(Json.Str("marked")) =>
           for { m <- str(o, "mark"); v <- o.get("view").toRight("no view").flatMap(decode) } yield View.Marked(m, v)
         case Some(Json.Str(t)) => Left(s"no view type $t")
