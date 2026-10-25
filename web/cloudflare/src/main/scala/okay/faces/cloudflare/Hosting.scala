@@ -19,8 +19,9 @@ final case class Door(base: String, opens: Request => Boolean, session: String =
 }
 
 object Door {
-  /** the program as pages from the server (the HTML face): `/` and `base` open a session */
-  def html[F <: Runner with Singleton, A](p: Program[A, okay.faces.Face],
+  /** the program as pages from the server (the HTML face): `/` and `base` open a session. The program made again for
+   * each session (by name): a handler it holds (a ledger in memory) is the session's own, and its journal's */
+  def html[F <: Runner with Singleton, A](p: => Program[A, okay.faces.Face],
     settings: HtmlFace.Settings = HtmlFace.Settings())(implicit fx: F): Door = {
     val face = new HtmlFace[F]()(fx)
     val https = new Https[face.fx.type]()(face.fx)
@@ -31,8 +32,9 @@ object Door {
     })
   }
 
-  /** the program as a JSON API with links (the REST face; the thin page's): `POST base` opens a session */
-  def rest[F <: Runner with Singleton, A](p: Program[A, okay.faces.Face],
+  /** the program as a JSON API with links (the REST face; the thin page's): `POST base` opens a session; the program
+   * made again for each session, as `html`'s */
+  def rest[F <: Runner with Singleton, A](p: => Program[A, okay.faces.Face],
     settings: RestFace.Settings = RestFace.Settings())(implicit fx: F): Door = {
     val face = new RestFace[F]()(fx)
     val https = new Https[face.fx.type]()(face.fx)

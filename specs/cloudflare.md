@@ -9,7 +9,8 @@ line, serves it on Cloudflare Workers, its sessions Durable Objects. Module `web
 - **A door** (`Door`): where a face's sessions are (`base/{id}`), which request opens one, the service of a session
   by its id — `Door.html(program, settings)` (the HTML face; `/` and `base` open), `Door.rest(program, settings)`
   (the REST face, the thin page's; `POST base` opens). A session's service is the face's own handler, run on the
-  implementation given, its ids fixed to the one id.
+  implementation given, its ids fixed to the one id. The program is taken BY NAME, made again for each session: a
+  handler it holds (a ledger in memory) is the session's own — never shared, never doubled by a journal played.
 - **The Worker** (`Cloudflare.serve(doors*)`, its `fetch` exported as `okayFacesFetch`): a request that opens a
   session gets a new random id and goes to the Durable Object of `base/id`; a request of a session (`base/{id}/…`)
   to its object; anything else (the look's `/okay.css`) answered in the Worker by a session never opened. The door,

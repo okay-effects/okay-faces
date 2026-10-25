@@ -44,6 +44,18 @@ class HostingSuite extends munit.FunSuite {
     assert(host(Request("POST", "/sessions/s1/act/add")).body.contains("count 3"))
   }
 
+  test("the program made for each session: what it holds is the session's own") {
+    var made = 0
+    def counted: Unit ! Face = { made += 1; count(0) }
+    val d = Door.rest(counted)
+    val (a, b) = (d.session("a"), d.session("b"))
+    a(Request("POST", "/sessions")); a(Request("POST", "/sessions/a/act/add"))
+    b(Request("POST", "/sessions"))
+    assertEquals(made, 2)
+    assert(a(Request.get("/sessions/a")).body.contains("count 1"))
+    assert(b(Request.get("/sessions/b")).body.contains("count 0"))
+  }
+
   test("a journal kept as JSON reads back the same") {
     val r = Request("POST", "/s/s1/act/add", Map("x" -> List("1")), Map("content-type" -> List("text/plain"),
       "cookie" -> List("no")), "title=Milk")
