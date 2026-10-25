@@ -177,6 +177,28 @@ lazy val domFace = CrossProject("dom", file("web/dom"))(JSPlatform).crossType(Cr
     if (platformsAsked("js")) p.withId("domJS").dependsOn(core.js, laminar.js % "test->compile", rest.js % "test->compile")
     else p.withId("domJS"))
 
+/** CLOUDFLARE WORKERS, Scala.js only: the server faces (HTML, REST) hosted by a Worker, each session a Durable Object,
+ * its journal played again when the object wakes — a way to deploy the same program, not a part of it
+ * (specs/cloudflare.md). `sbt -Dplatforms=js cloudflareJS/compile`; the example `examplesCloudflareJS` */
+lazy val cloudflare = crossBoth("cloudflare", "web/cloudflare", can = Set("js"))
+  .dependsOn(core, rest, html).settings(name := "okay-faces-cloudflare",
+    libraryDependencies ++= Seq("io.github.okay-effects" %%% "okay-http" % okayHttp,
+      "io.github.okay-effects" %%% "okay-effects-machine" % okayEffects % Test))
+  // the Worker and the Durable Object, Scala.js's alone; `Hosting`, the session's program, everywhere
+  .onJS(_.settings(
+    Compile / unmanagedSourceDirectories += baseDirectory.value.getParentFile / "src" / "main" / "scala-js"))
+/** THE LIST ON CLOUDFLARE: the to-do example's Cloudflare main — its pages and its API, each session a Durable Object;
+ * `sbt -Dplatforms=js examplesCloudflareJS/fullLinkJS`, then `examples/cloudflare/deploy.sh` (wrangler) */
+lazy val examplesCloudflare = CrossProject("examplesCloudflare", file("examples/cloudflare"))(JSPlatform)
+  .crossType(CrossType.Pure)
+  .settings(crossBuilt, name := "okay-faces-examples-cloudflare", publish / skip := true,
+    scalaJSUseMainModuleInitializer := true, Compile / mainClass := Some("okay.faces.examples.TodoCloudflare"),
+    scalaJSLinkerConfig ~= (_.withModuleKind(ModuleKind.ESModule)),
+    libraryDependencies += "io.github.okay-effects" %%% "okay-effects-machine" % okayEffects)
+  .jsConfigure(p =>
+    if (platformsAsked("js")) p.withId("examplesCloudflareJS").dependsOn(cloudflare.js, examples.js)
+    else p.withId("examplesCloudflareJS"))
+
 /** AIRSTREAM'S STREAMS AND OKAY'S, both ways, a Var as a State's handler — no Face: a Laminar team may take it alone */
 lazy val airstream = CrossProject("airstream", file("web/airstream"))(JSPlatform).crossType(CrossType.Pure)
   .settings(crossBuilt, name := "okay-faces-airstream",
@@ -228,9 +250,11 @@ lazy val docsCheck = (project in file("docs/check"))
 
 /** every module on every platform asked: the cross-built ones' projects, the web ones' when js is asked */
 lazy val root = (project in file(".")).aggregate((Seq[ProjectReference](swing, docsCheck) ++
-    Seq(core, test, term, mcp, rest, html, examples).flatMap(_.projects.values.map(p => p: ProjectReference)) ++
+    Seq(core, test, term, mcp, rest, html, cloudflare, examples)
+      .flatMap(_.projects.values.map(p => p: ProjectReference)) ++
     ((if (platformsAsked("js"))
-        Seq[ProjectReference](laminar.js, domFace.js, airstream.js, waypoint.js, examplesTodo.js, examplesRemote.js)
+        Seq[ProjectReference](laminar.js, domFace.js, airstream.js, waypoint.js, examplesTodo.js, examplesRemote.js,
+          examplesCloudflare.js)
       else Nil))): _*).settings(name := "okay-faces-root", publish / skip := true, crossScalaVersions := Nil)
 
 /** a release into `target/pages-maven/`, on Scala 3.3 and 2.13 — `sbt -Dplatforms=jvm,js publishPages`: the

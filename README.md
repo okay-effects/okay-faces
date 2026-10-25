@@ -75,6 +75,11 @@ The block above is compiled and run by `sbt docsCheck/test`.
 | REST | `rest` | the dialogue as a JSON API with links and affordances (HATEOAS); a domain effect as resources, and performed from afar over `Fetch` — on [okay-http](https://github.com/okay-effects/okay-http) |
 | HTML | `html` | pages from the server, structural HTML5, no script; forms posted; the look as `/okay.css` |
 
+Where it runs is a deploying, not a face: the page alone (a static host), a server on the JVM (`HtmlFace.serve`,
+`RestFace.serve`), or **Cloudflare Workers** — `web/cloudflare`, one more main, one line,
+`Cloudflare.serve(Door.html(program), Door.rest(program))`: each session a Durable Object, its journal of requests
+played again when the object wakes ([specs/cloudflare.md](specs/cloudflare.md), `examples/cloudflare`).
+
 ## How it works
 
 `Face` has two operations: `Offer(view, actions)`, answered by the action taken with its parameters decoded, and

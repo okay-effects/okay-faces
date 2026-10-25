@@ -1,0 +1,13 @@
+# an okay-faces application on Cloudflare Workers: `npx wrangler dev`, `npx wrangler deploy`
+# main.js: the application's Cloudflare main, linked as an ES module (fullLinkJS), copied beside entry.js
+name = "my-okay-app"
+main = "entry.js"
+compatibility_date = "2026-10-01"
+
+[[durable_objects.bindings]]
+name = "OKAY_FACES_SESSIONS"
+class_name = "OkayFacesSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["OkayFacesSession"]
