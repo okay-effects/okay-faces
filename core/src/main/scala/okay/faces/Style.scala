@@ -237,7 +237,10 @@ object Css {
       ".okay-action{border:0;font:inherit;cursor:pointer}.okay-back{border:0;font:inherit;cursor:pointer}" +
       ".okay-more>summary{cursor:pointer}" +
       ".okay-picture{display:block;width:100%;height:auto}.okay-picture-shape{fill:currentColor}" +
-      ".okay-picture-band{fill-opacity:.55}.okay-picture-label{fill:var(--okay-fg);font-size:12px}"
+      ".okay-picture-band{fill-opacity:.55}.okay-picture-label{fill:var(--okay-fg);font-size:12px}" +
+      // a QR code: the look's darker tone on its lighter one, whatever the scheme — a camera reads dark on light
+      s".okay-picture rect.okay-mark-qr-ink{fill:${Css.ink(t).hex};shape-rendering:crispEdges}" +
+      s".okay-picture rect.okay-mark-qr-paper{fill:${Css.paper(t).hex};shape-rendering:crispEdges}"
     val marks = look.style.rules.keys.collect { case m: Role.Mark => m }.toList.sortBy(_.mark)
     val blocks = (Role.all ++ marks).flatMap { role =>
       val r = look.style(role)
@@ -249,6 +252,11 @@ object Css {
     }
     (base :: blocks).mkString("\n")
   }
+
+  /** a QR code's tones: of the theme's foreground and background, the darker and the lighter */
+  def ink(t: Theme): Color = List(t.palette.fg, t.palette.bg).minBy(luminance)
+  def paper(t: Theme): Color = List(t.palette.fg, t.palette.bg).maxBy(luminance)
+  private def luminance(c: Color): Double = 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b
 
   /** a role's class as a selector: a qualified mark's dot escaped, `okay-mark-shop\\.price` */
   def selector(role: Role): String = role.cls.replace(".", "\\.")

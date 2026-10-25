@@ -325,6 +325,14 @@ A face goes on; the step machine carries the point to the step it comes to (`Ste
 state; `from(point)`, the program started there) is how a program says them. Its use: a host that loses its memory
 keeps the last point, not the way there (the continuation is code; the point is data) — specs/cloudflare.md.
 
+## A QR code (2026-10-25)
+
+`View.qr(text, alt)`: a QR code of a text as a `View.Picture` — every face that draws pictures draws it, every other
+says `alt` (or the text). `Qr(text)` is the code itself, of no platform and no library (bytes mode, correction M, the
+smallest version, the mask of the least penalty; read back by ZXing in the JVM's tests). Its marks `qr-ink` and
+`qr-paper`, their tones the look's darker and lighter of its foreground and background — dark on light in either
+scheme, as a camera reads it (`Css.ink`, `Css.paper`).
+
 ## The step machine — one core for every face
 
 The standard handler of `Face` draws nothing. It turns a program into a machine of steps:

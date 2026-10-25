@@ -83,6 +83,22 @@ object View {
   }
 
   def text(s: String): View = Text(s)
+  /** A QR CODE of a text, as a picture every face draws (`Qr`): its dark modules in runs (`qr-ink`) on a ground with a
+   * quiet zone of four (`qr-paper`), the look's darker and lighter tones; in words — a face with no pictures, a reader
+   * — `alt`, or the text itself. A text too long for a code is the text */
+  def qr(text: String, alt: Option[String] = None): View = Qr(text) match {
+    case None => Text(text)
+    case Some(m) =>
+      val n = m.size + 8
+      val runs = m.zipWithIndex.flatMap { case (row, y) =>
+        val (ends, _) = (row :+ false).zipWithIndex.foldLeft((Vector.empty[(Int, Int)], -1)) {
+          case ((acc, start), (d, x)) =>
+            if (d && start < 0) (acc, x) else if (!d && start >= 0) (acc :+ (start -> x), -1) else (acc, start)
+        }
+        ends.map { case (x0, x1) => Picture.Box(x0 + 4, y + 4, x1 - x0, 1, "qr-ink", ""): Picture.Shape }
+      }
+      Picture(n, n, (Picture.Box(0, 0, n, n, "qr-paper", ""): Picture.Shape) +: runs, alt.getOrElse(text))
+  }
   def heading(s: String, level: Int = 1): View = Heading(level, s)
   def info(s: String): View = Notice(Notice.Info, s)
   def warning(s: String): View = Notice(Notice.Warning, s)

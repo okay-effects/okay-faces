@@ -59,6 +59,8 @@ lazy val core = crossBoth("core", "core").settings(name := "okay-faces",
     "io.github.okay-effects" %%% "okay-effects-shape" % okayEffects,
     "io.github.okay-effects" %%% "okay-effects-tagless" % okayEffects,
     "io.github.okay-effects" %%% "okay-effects-machine" % okayEffects % Test))
+  // a QR code read back by a reader of its own (ZXing): the JVM's tests alone
+  .jvmSettings(libraryDependencies += "com.google.zxing" % "core" % "3.5.3" % Test)
 
 /** THE TEST FACE: a step machine driven by a script of choices, every view collected, back as an entry */
 lazy val test = crossBoth("test", "test").dependsOn(core).settings(name := "okay-faces-test",
