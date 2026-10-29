@@ -1,7 +1,8 @@
 # face-ios — the dialogue on an iPhone: the program in Scala Native, the screen in SwiftUI
 
-Status: implemented 2026-10-29 — both examples played by taps on the iPhone simulator (`ShellUITests`). Asked by the operator: «сделать поддержку в okay-faces для iOS» — the way of a
-Scala program as a native library under a Swift shell (not a web view, not a JVM on the phone).
+Status: implemented 2026-10-29 — both examples played by taps on the iPhone simulator (`ShellUITests`). Asked by the
+operator: «сделать поддержку в okay-faces для iOS» — the way of a Scala program as a native library under a Swift shell
+(not a web view, not a JVM on the phone).
 
 ## The cut
 

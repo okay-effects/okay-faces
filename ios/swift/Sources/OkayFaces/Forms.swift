@@ -155,7 +155,8 @@ struct FormView: View {
         Button(look.word("add", "Add")) { values[name] = [Self.day(Date())] }
           .foregroundStyle(look.tone("accent") ?? .accentColor).accessibilityIdentifier("add-\(name)")
       }
-    default: TextField(f.label, text: text(name)).textFieldStyle(.roundedBorder).accessibilityIdentifier("field-\(name)")
+    default:
+      TextField(f.label, text: text(name)).textFieldStyle(.roundedBorder).accessibilityIdentifier("field-\(name)")
     }
   }
 
