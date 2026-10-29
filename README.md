@@ -74,6 +74,7 @@ The block above is compiled and run by `sbt docsCheck/test`.
 | MCP | `mcp` | the dialogue as tools for an agent, on [okay-mcp](https://github.com/okay-effects/okay-mcp): stdio, or HTTP with sessions; a domain effect's operations as tools too |
 | REST | `rest` | the dialogue as a JSON API with links and affordances (HATEOAS); a domain effect as resources, and performed from afar over `Fetch` — on [okay-http](https://github.com/okay-effects/okay-http) |
 | HTML | `html` | pages from the server, structural HTML5, no script; forms posted; the look as `/okay.css` |
+| iOS | `ios` | the program in Scala Native, a static library of seven C functions (screens and choices as JSON); the screen in SwiftUI (`ios/swift`, the package `OkayFaces`), knowing no application; forms lowered by dotted name, the look interpreted ([specs/ios.md](specs/ios.md)) |
 
 Where it runs is a deploying, not a face: the page alone (a static host), a server on the JVM (`HtmlFace.serve`,
 `RestFace.serve`), or **Cloudflare Workers** — `web/cloudflare`, one more main, one line,
@@ -120,6 +121,14 @@ sbt -Dplatforms=js examplesJS/fullLinkJS "examples/runMain okay.faces.examples.N
                                                                    # the whole game in the browser
 ```
 
+On an iPhone, the same two programs as `IosApp`s (`ios/example`): the library for the simulator, then the shell
+(XcodeGen makes its project):
+
+```
+ios/build.sh simulator                                             # libokay-faces-ios-example.a for the shell
+cd ios/example/Shell && xcodegen && open Shell.xcodeproj           # run; `-app okay.faces.ios.example.NoughtsApp`
+```
+
 The first application is [verity](https://github.com/okay-effects/verity), a keeper of one's personal data, on every
 face above; [okay-store](https://github.com/okay-effects/okay-store) describes its types for them.
 
@@ -131,6 +140,7 @@ at the root keeps the author's line breaks and wraps only what is too long).
 
 ```
 sbt -Dplatforms=js +test +examples/test +laminarJS/test +domJS/test examplesJS/test docsCheck/test
+sbt -Dplatforms=native iosNative/test                              # the iOS face's C functions, on the Mac
 ```
 
 okay-simple 0.1.1, okay-http 0.1.0 and okay-mcp 0.1.0 come from their release repositories: nothing to publish
