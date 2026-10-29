@@ -19,8 +19,9 @@ libraryDependencies ++= Seq(
 )
 ```
 
-`%%%` for Scala.js. Built on Scala 3.3 LTS and Scala 2.13, for the JVM and Scala.js; Scala Native is not released
-(the MCP face's tests do not end there yet).
+`%%%` for Scala.js and Scala Native. Built on Scala 3.3 LTS and Scala 2.13, for the JVM and Scala.js; for Scala Native
+the core and the iOS face (`okay-faces-ios`, specs/ios.md: an application's static library for an iPhone) — the other
+faces' tests do not end there yet.
 
 ## Making one
 
@@ -38,6 +39,8 @@ libraryDependencies ++= Seq(
    ```sh
    rm -rf target/pages-maven
    sbt -Dplatforms=jvm,js publishPages
+   OKAY_PLATFORMS=native sbt "++3.3.8 coreNative/publish" "++3.3.8 iosNative/publish" \
+     "++2.13.18 coreNative/publish" "++2.13.18 iosNative/publish"
    ```
 
 4. Onto `gh-pages`, under `maven/`, beside the releases already there:
