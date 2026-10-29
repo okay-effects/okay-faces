@@ -20,8 +20,8 @@ design is a change of the spec first.
 - Commits: plain messages, what and why, no attribution trailers.
 - The iOS face (`ios/`, specs/ios.md): Scala Native gives screens and takes choices as JSON through C functions; the
   SwiftUI half (`ios/swift`) knows no application and no `Schema` — a form is lowered in Scala (`IosForm`), read back
-  by `FormJson`. A change to the screen's JSON is a change to `Model.swift` too; the shell is checked by `xcodebuild`
-  for the simulator after `ios/build.sh`.
+  by `FormJson`. A change to the screen's JSON is a change to `Model.swift` too; the shell is checked by its UI tests
+  (`ShellUITests`, `xcodebuild ... test` on a simulator) after `ios/build.sh`.
 - The DOM faces (`web/dom`: `DomFace`, `DomRemoteFace`) keep the Laminar faces' markup exactly: a change to the
   Laminar faces' markup is a change to theirs too (`Drawing`) — `SameMarkupSuite`, `SameRemoteMarkupSuite` fail
   otherwise. Inside, the world is effects (`Page`, `History`, `Focus`, `Keys`, `Server`, `Timer`, `World.scala`)

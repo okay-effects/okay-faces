@@ -127,6 +127,8 @@ On an iPhone, the same two programs as `IosApp`s (`ios/example`): the library fo
 ```
 ios/build.sh simulator                                             # libokay-faces-ios-example.a for the shell
 cd ios/example/Shell && xcodegen && open Shell.xcodeproj           # run; `-app okay.faces.ios.example.NoughtsApp`
+xcodebuild -project Shell.xcodeproj -scheme Shell -destination 'platform=iOS Simulator,name=iPhone 16 Pro' test
+                                                                   # both played by taps (ShellUITests), screens kept
 ```
 
 The first application is [verity](https://github.com/okay-effects/verity), a keeper of one's personal data, on every

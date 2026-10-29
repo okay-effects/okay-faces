@@ -30,3 +30,22 @@ targets:
         "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
         ENABLE_USER_SCRIPT_SANDBOXING: NO
         SWIFT_VERSION: "5.0"
+  ShellUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources: [ShellUITests]
+    dependencies:
+      - target: Shell
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.okay-effects.faces.shell.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
+        SWIFT_VERSION: "5.0"
+schemes:
+  Shell:
+    build:
+      targets:
+        Shell: all
+    test:
+      targets: [ShellUITests]

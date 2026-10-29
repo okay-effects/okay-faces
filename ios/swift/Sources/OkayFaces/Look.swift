@@ -59,10 +59,22 @@ extension Color {
   }
 }
 
+/// what a part takes from the part around it, as the web's text does: its colour, weight, typeface, and its size as a
+/// multiple — a cell marked 1.6 makes the mark inside it 1.6
+struct Inherited { var color: String?; var bold = false; var mono = false; var size = 1.0 }
+private struct InheritedKey: EnvironmentKey { static let defaultValue = Inherited() }
+extension EnvironmentValues {
+  var okayInherited: Inherited {
+    get { self[InheritedKey.self] }
+    set { self[InheritedKey.self] = newValue }
+  }
+}
+
 /// A PART DRESSED BY ITS ROLE'S RULE: its font, its tones, its padding, its border
 struct Dressed: ViewModifier {
   let look: LookSpec
   let roles: [String]
+  @Environment(\.okayInherited) private var around
 
   func body(content: Content) -> some View {
     // general to specific: a level-1 heading is a heading; the specific one's word wins where it says something
@@ -76,10 +88,15 @@ struct Dressed: ViewModifier {
       return m
     }
     let pad = CGFloat(r.pad) * look.space
+    let inner = Inherited(color: r.color ?? around.color, bold: r.bold || around.bold, mono: r.mono || around.mono,
+      size: r.size * around.size)
+    var font = r; font.bold = inner.bold; font.mono = inner.mono; font.size = inner.size
     return content
-      .font(look.font(r))
-      .foregroundStyle(look.tone(r.color) ?? look.tone("fg") ?? .primary)
+      .environment(\.okayInherited, inner)
+      .font(look.font(font))
+      .foregroundStyle(look.tone(inner.color) ?? look.tone("fg") ?? .primary)
       .multilineTextAlignment(r.centered ? .center : .leading)
+      .frame(maxWidth: r.centered ? .infinity : nil, alignment: .center)
       .padding(pad)
       .background(look.tone(r.background) ?? .clear, in: RoundedRectangle(cornerRadius: pad > 0 ? 6 : 0))
       .overlay {

@@ -2,11 +2,16 @@
 // choice, go back; a screen each time. One a process, as the library keeps one.
 import Foundation
 import COkayFaces
+#if canImport(UIKit)
+import UIKit
+#endif
 
 @MainActor
 public final class Dialogue: ObservableObject {
   @Published private(set) var screen = Screen.empty
   @Published private(set) var look = LookSpec()
+  /// a new step each time a choice is taken: the forms drawn afresh; a rejected one keeps what was typed
+  @Published private(set) var turn = 0
   private static var started = false
   fileprivate static weak var current: Dialogue?
 
@@ -28,9 +33,15 @@ public final class Dialogue: ObservableObject {
     guard let data = try? JSONSerialization.data(withJSONObject: choice) else { return }
     let text = String(decoding: data, as: UTF8.self)
     screen = Screen(Dialogue.read(text.withCString { okay_faces_act($0) }))
+    if screen.problems.isEmpty {
+      turn += 1
+      #if canImport(UIKit)
+      UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+      #endif
+    }
   }
 
-  public func back() { screen = Screen(Dialogue.read(okay_faces_back())) }
+  public func back() { screen = Screen(Dialogue.read(okay_faces_back())); turn += 1 }
   public func refresh() { screen = Screen(Dialogue.read(okay_faces_screen())) }
 
   /// a string of the library's as JSON, and the string freed

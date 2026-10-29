@@ -16,6 +16,7 @@ struct Actions: View {
         Flow(row: look.rule("actions").row, spacing: look.spacing("actions")) {
           ForEach(buttons) { a in
             Button { dialogue.act(a.name) } label: { Text(a.label).dressed(look, "action") }.buttonStyle(.plain)
+              .accessibilityIdentifier("act-\(a.name)")
           }
         }
       }
@@ -42,7 +43,7 @@ struct FormView: View {
         }.dressed(look, "more")
       }
       Button { dialogue.act(action.name, values) } label: { Text(action.label).dressed(look, "action") }
-        .buttonStyle(.plain)
+        .buttonStyle(.plain).accessibilityIdentifier("act-\(action.name)")
     }
     .frame(maxWidth: .infinity, alignment: .leading)
     .dressed(look, "form")
@@ -115,7 +116,7 @@ struct FormView: View {
               values = values.filter { !$0.key.hasPrefix("\(name).\(n - 1).") }
             }
           }
-        }
+        }.foregroundStyle(look.tone("accent") ?? .accentColor)
       default:
         Text(f.label + (f.required ? "" : " ")).dressed(look, "label")
         leaf(f, name)
@@ -128,7 +129,7 @@ struct FormView: View {
   private func leaf(_ f: Field, _ name: String) -> some View {
     switch f.kind {
     case "long", "lines":
-      TextEditor(text: text(name)).frame(minHeight: 80)
+      TextEditor(text: text(name)).frame(minHeight: 80).accessibilityIdentifier("field-\(name)")
         .overlay(RoundedRectangle(cornerRadius: 6).stroke(look.tone("border") ?? .gray))
     case "secret": SecureField(f.label, text: text(name)).textFieldStyle(.roundedBorder)
     case "integer": TextField(f.label, text: text(name)).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
@@ -145,12 +146,16 @@ struct FormView: View {
           DatePicker(f.label, selection: Binding(
             get: { values[name]?.first.flatMap(Self.parse) ?? Date() },
             set: { values[name] = [Self.day($0)] }), displayedComponents: .date).labelsHidden()
-          if !f.required { Button(look.word("remove", "Remove")) { values[name] = nil } }
+          if !f.required {
+            Button(look.word("remove", "Remove")) { values[name] = nil }
+              .foregroundStyle(look.tone("accent") ?? .accentColor)
+          }
         }
       } else {
         Button(look.word("add", "Add")) { values[name] = [Self.day(Date())] }
+          .foregroundStyle(look.tone("accent") ?? .accentColor).accessibilityIdentifier("add-\(name)")
       }
-    default: TextField(f.label, text: text(name)).textFieldStyle(.roundedBorder)
+    default: TextField(f.label, text: text(name)).textFieldStyle(.roundedBorder).accessibilityIdentifier("field-\(name)")
     }
   }
 

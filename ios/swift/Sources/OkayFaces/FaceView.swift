@@ -26,6 +26,7 @@ public struct OkayFacesView: View {
                 .dressed(look, "problems")
             }
             Actions(actions: screen.actions.filter { $0.name != "ref" }, look: look, dialogue: dialogue)
+              .id(dialogue.turn)
             Color.clear.frame(height: 1).id("end")
           }
           .padding(CGFloat(look.rule("face").pad) * look.space)
@@ -72,18 +73,24 @@ struct Node: View {
         }
       }.dressed(look, "fields")
     case .table(let columns, let rows):
-      ScrollView(.horizontal) {
-        Grid(alignment: .leading, horizontalSpacing: look.space * 2, verticalSpacing: look.space) {
-          GridRow { ForEach(columns, id: \.self) { Text($0).dressed(look, "label") } }
+      // as wide as it needs, in the middle when its rule says so; scrolled across only when it does not fit
+      let cell = look.size * 2
+      let grid = Grid(alignment: .center, horizontalSpacing: look.space, verticalSpacing: look.space) {
+        if columns.contains(where: { !$0.isEmpty }) {
+          GridRow { ForEach(Array(columns.enumerated()), id: \.offset) { Text($0.1).dressed(look, "label") } }
           Divider()
-          ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
-            GridRow {
-              ForEach(Array(r.enumerated()), id: \.offset) { _, c in
-                Node(view: c, look: look, dialogue: dialogue, refs: refs)
-              }
+        }
+        ForEach(Array(rows.enumerated()), id: \.offset) { _, r in
+          GridRow {
+            ForEach(Array(r.enumerated()), id: \.offset) { _, c in
+              Node(view: c, look: look, dialogue: dialogue, refs: refs).frame(minWidth: cell, minHeight: cell)
             }
           }
         }
+      }
+      ViewThatFits(in: .horizontal) {
+        grid
+        ScrollView(.horizontal) { grid }
       }.dressed(look, "table")
     case .items(let xs):
       VStack(alignment: .leading, spacing: look.spacing("items")) {
@@ -104,6 +111,7 @@ struct Node: View {
     case .ref(let key, let label):
       if refs {
         Button(label) { dialogue.act("ref", ["key": [key]]) }.buttonStyle(.plain).dressed(look, "ref")
+          .accessibilityIdentifier("ref-\(key)")
       } else {
         Text(label).dressed(look, "ref")
       }
