@@ -16,11 +16,10 @@ public struct OkayFacesView: View {
           VStack(alignment: .leading, spacing: look.spacing("face")) {
             if let e = screen.error { Text(e).dressed(look, "notice", "notice-problem") }
             ForEach(Array(screen.told.enumerated()), id: \.offset) { _, v in
-              Node(view: v, look: look, dialogue: dialogue, refs: false).frame(maxWidth: .infinity, alignment: .leading)
-                .dressed(look, "told")
+              Node(view: v, look: look, dialogue: dialogue, refs: false).card(look)
+                .environment(\.okayInherited, Inherited(color: "muted"))
             }
-            Node(view: screen.view, look: look, dialogue: dialogue, refs: screen.refs)
-              .frame(maxWidth: .infinity, alignment: .leading).dressed(look, "view")
+            Node(view: screen.view, look: look, dialogue: dialogue, refs: screen.refs).card(look)
             if !screen.problems.isEmpty {
               VStack(alignment: .leading) { ForEach(screen.problems, id: \.self) { Text($0) } }
                 .dressed(look, "problems")
@@ -29,17 +28,18 @@ public struct OkayFacesView: View {
               .id(dialogue.turn)
             Color.clear.frame(height: 1).id("end")
           }
-          .padding(CGFloat(look.rule("face").pad) * look.space)
+          .padding(.horizontal, look.space * 2).padding(.vertical, look.space)
         }
+        .scrollDismissesKeyboard(.interactively)
         .onChange(of: screen.told.count + screen.actions.count) { scroll.scrollTo("end") }
       }
-      .background(look.tone("bg") ?? Color(.systemBackground))
-      .navigationTitle(screen.title ?? "")
+      .background(look.page)
       .navigationBarTitleDisplayMode(.inline)
       .toolbar {
         if screen.back {
           ToolbarItem(placement: .topBarLeading) {
-            Button(look.word("back", "Back")) { dialogue.back() }.dressed(look, "back")
+            Button { dialogue.back() } label: { Label(look.word("back", "Back"), systemImage: "chevron.backward") }
+              .labelStyle(.titleAndIcon)
           }
         }
       }
@@ -54,6 +54,7 @@ struct Node: View {
   let look: LookSpec
   let dialogue: Dialogue
   let refs: Bool
+  @Environment(\.okayInherited) private var around
 
   var body: some View {
     switch view {
@@ -74,7 +75,7 @@ struct Node: View {
       }.dressed(look, "fields")
     case .table(let columns, let rows):
       // as wide as it needs, in the middle when its rule says so; scrolled across only when it does not fit
-      let cell = look.size * 2
+      let cell = look.size * 3
       let grid = Grid(alignment: .center, horizontalSpacing: look.space, verticalSpacing: look.space) {
         if columns.contains(where: { !$0.isEmpty }) {
           GridRow { ForEach(Array(columns.enumerated()), id: \.offset) { Text($0.1).dressed(look, "label") } }
@@ -84,6 +85,7 @@ struct Node: View {
           GridRow {
             ForEach(Array(r.enumerated()), id: \.offset) { _, c in
               Node(view: c, look: look, dialogue: dialogue, refs: refs).frame(minWidth: cell, minHeight: cell)
+                .aspectRatio(1, contentMode: .fit)
             }
           }
         }
@@ -93,11 +95,14 @@ struct Node: View {
         ScrollView(.horizontal) { grid }
       }.dressed(look, "table")
     case .items(let xs):
-      VStack(alignment: .leading, spacing: look.spacing("items")) {
-        ForEach(Array(xs.enumerated()), id: \.offset) { _, x in
+      // rows, as iOS lists them: a line between, the whole row the place to tap
+      VStack(alignment: .leading, spacing: 0) {
+        ForEach(Array(xs.enumerated()), id: \.offset) { i, x in
+          if i > 0 { Divider() }
           Node(view: x, look: look, dialogue: dialogue, refs: refs)
+            .padding(.vertical, look.space * 1.25).frame(maxWidth: .infinity, alignment: .leading)
         }
-      }.dressed(look, "items")
+      }
     case .group(let title, let children):
       let rule = look.rule("group")
       VStack(alignment: .leading, spacing: look.spacing("group")) {
@@ -110,8 +115,10 @@ struct Node: View {
       }.dressed(look, "group")
     case .ref(let key, let label):
       if refs {
-        Button(label) { dialogue.act("ref", ["key": [key]]) }.buttonStyle(.plain).dressed(look, "ref")
-          .accessibilityIdentifier("ref-\(key)")
+        Button { dialogue.act("ref", ["key": [key]]) } label: {
+          Text(label).frame(maxWidth: .infinity, maxHeight: .infinity, alignment: around.centered ? .center : .leading)
+            .contentShape(Rectangle())
+        }.buttonStyle(.plain).dressed(look, "ref").accessibilityIdentifier("ref-\(key)")
       } else {
         Text(label).dressed(look, "ref")
       }

@@ -10,17 +10,37 @@ struct Actions: View {
   var body: some View {
     let buttons = actions.filter { $0.fields.isEmpty }
     let forms = actions.filter { !$0.fields.isEmpty }
-    VStack(alignment: .leading, spacing: look.spacing("actions")) {
+    VStack(alignment: .leading, spacing: look.space * 2) {
       ForEach(forms) { a in FormView(action: a, look: look, dialogue: dialogue).id(a.name) }
-      if !buttons.isEmpty {
-        Flow(row: look.rule("actions").row, spacing: look.spacing("actions")) {
-          ForEach(buttons) { a in
-            Button { dialogue.act(a.name) } label: { Text(a.label).dressed(look, "action") }.buttonStyle(.plain)
-              .accessibilityIdentifier("act-\(a.name)")
-          }
+      // the buttons as iOS draws its own: large, the width of the screen, in the action's tone
+      VStack(spacing: look.space) {
+        // one main action a screen: the form's, else the first button; the others lighter
+        ForEach(Array(buttons.enumerated()), id: \.element.id) { i, a in
+          Prominent(label: a.label, look: look, main: forms.isEmpty && i == 0) { dialogue.act(a.name) }
+            .accessibilityIdentifier("act-\(a.name)")
         }
       }
-    }.dressed(look, "actions")
+    }
+  }
+}
+
+/// a button as iOS draws a main one: large, the width there is, filled with the action's tone
+struct Prominent: View {
+  let label: String
+  let look: LookSpec
+  var main = true
+  let act: () -> Void
+  var body: some View {
+    let r = look.rule("action")
+    let tone = look.tone(r.background) ?? look.tone("accent") ?? .accentColor
+    let button = Button(action: act) {
+      Text(label).font(look.font(r)).frame(maxWidth: .infinity).padding(.vertical, look.space * 0.75)
+    }.buttonBorderShape(.roundedRectangle(radius: 12)).controlSize(.large).tint(tone)
+    if main {
+      button.buttonStyle(.borderedProminent).foregroundStyle(look.tone(r.color) ?? .white)
+    } else {
+      button.buttonStyle(.bordered).foregroundStyle(tone)
+    }
   }
 }
 
@@ -33,7 +53,8 @@ struct FormView: View {
   @State private var counts: [String: Int] = [:]
 
   var body: some View {
-    VStack(alignment: .leading, spacing: look.spacing("form")) {
+    VStack(alignment: .leading, spacing: look.space * 1.5) {
+      Text(action.label.uppercased()).font(look.small).foregroundStyle(look.tone("muted") ?? .secondary)
       if let d = action.doc { Text(d).dressed(look, "doc") }
       ForEach(action.fields.filter { !$0.more }) { f in control(f, prefix: nil) }
       let held = action.fields.filter { $0.more }
@@ -42,11 +63,10 @@ struct FormView: View {
           ForEach(held) { f in control(f, prefix: nil) }
         }.dressed(look, "more")
       }
-      Button { dialogue.act(action.name, values) } label: { Text(action.label).dressed(look, "action") }
-        .buttonStyle(.plain).accessibilityIdentifier("act-\(action.name)")
+      Prominent(label: action.label, look: look) { dialogue.act(action.name, values) }
+        .accessibilityIdentifier("act-\(action.name)").padding(.top, look.space / 2)
     }
-    .frame(maxWidth: .infinity, alignment: .leading)
-    .dressed(look, "form")
+    .card(look)
     .onAppear { defaults(action.fields) }
   }
 
@@ -118,22 +138,24 @@ struct FormView: View {
           }
         }.foregroundStyle(look.tone("accent") ?? .accentColor)
       default:
-        Text(f.label + (f.required ? "" : " ")).dressed(look, "label")
+        Text(f.label).font(look.small).foregroundStyle(look.tone("muted") ?? .secondary)
         leaf(f, name)
       }
-      if let d = f.doc { Text(d).dressed(look, "doc") }
-    }.dressed(look, "field"))
+      if let d = f.doc {
+        Text(d).font(.system(size: look.size * 0.75)).foregroundStyle(look.tone("muted") ?? .secondary)
+      }
+    })
   }
 
   @ViewBuilder
   private func leaf(_ f: Field, _ name: String) -> some View {
     switch f.kind {
     case "long", "lines":
-      TextEditor(text: text(name)).frame(minHeight: 80).accessibilityIdentifier("field-\(name)")
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(look.tone("border") ?? .gray))
-    case "secret": SecureField(f.label, text: text(name)).textFieldStyle(.roundedBorder)
-    case "integer": TextField(f.label, text: text(name)).keyboardType(.numberPad).textFieldStyle(.roundedBorder)
-    case "number": TextField(f.label, text: text(name)).keyboardType(.decimalPad).textFieldStyle(.roundedBorder)
+      TextEditor(text: text(name)).frame(minHeight: 80).scrollContentBackground(.hidden)
+        .accessibilityIdentifier("field-\(name)").filled(look)
+    case "secret": SecureField(f.label, text: text(name)).filled(look)
+    case "integer": TextField(f.label, text: text(name)).keyboardType(.numberPad).filled(look)
+    case "number": TextField(f.label, text: text(name)).keyboardType(.decimalPad).filled(look)
     case "choice":
       Picker(f.label, selection: Binding(get: { values[name]?.first ?? "" },
         set: { values[name] = $0.isEmpty ? nil : [$0] })) {
@@ -156,7 +178,7 @@ struct FormView: View {
           .foregroundStyle(look.tone("accent") ?? .accentColor).accessibilityIdentifier("add-\(name)")
       }
     default:
-      TextField(f.label, text: text(name)).textFieldStyle(.roundedBorder).accessibilityIdentifier("field-\(name)")
+      TextField(f.label, text: text(name)).accessibilityIdentifier("field-\(name)").filled(look)
     }
   }
 

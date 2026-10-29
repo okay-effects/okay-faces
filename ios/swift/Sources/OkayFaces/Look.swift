@@ -20,6 +20,7 @@ struct Rule {
 
 struct LookSpec {
   var palette: [String: Color] = [:]
+  var hexes: [String: String] = [:]
   var size = 16.0, space = 8.0
   var serif = false, mono = false
   var rules: [String: Rule] = [:]
@@ -28,7 +29,9 @@ struct LookSpec {
   init() {}
   init(_ o: JSON) {
     let theme = obj(o["theme"])
-    for (tone, hex) in obj(theme["palette"]) { if let h = hex as? String { palette[tone] = Color(hex: h) } }
+    for (tone, hex) in obj(theme["palette"]) {
+      if let h = hex as? String { palette[tone] = Color(hex: h); hexes[tone] = h }
+    }
     size = num(theme["size"]) ?? 16; space = num(theme["space"]) ?? 8
     serif = str(theme["font"]) == "serif"; mono = str(theme["font"]) == "mono"
     for (role, r) in obj(o["rules"]) { rules[role] = Rule(obj(r)) }
@@ -51,6 +54,11 @@ struct LookSpec {
 }
 
 extension Color {
+  /// a hex colour's channels, 0 to 1
+  static func rgb(_ hex: String) -> (Double, Double, Double) {
+    let v = UInt64(hex.hasPrefix("#") ? String(hex.dropFirst()) : hex, radix: 16) ?? 0
+    return (Double((v >> 16) & 0xff) / 255, Double((v >> 8) & 0xff) / 255, Double(v & 0xff) / 255)
+  }
   init(hex: String) {
     let h = hex.hasPrefix("#") ? String(hex.dropFirst()) : hex
     let v = UInt64(h, radix: 16) ?? 0
@@ -61,7 +69,7 @@ extension Color {
 
 /// what a part takes from the part around it, as the web's text does: its colour, weight, typeface, and its size as a
 /// multiple — a cell marked 1.6 makes the mark inside it 1.6
-struct Inherited { var color: String?; var bold = false; var mono = false; var size = 1.0 }
+struct Inherited { var color: String?; var bold = false; var mono = false; var size = 1.0; var centered = false }
 private struct InheritedKey: EnvironmentKey { static let defaultValue = Inherited() }
 extension EnvironmentValues {
   var okayInherited: Inherited {
@@ -89,14 +97,16 @@ struct Dressed: ViewModifier {
     }
     let pad = CGFloat(r.pad) * look.space
     let inner = Inherited(color: r.color ?? around.color, bold: r.bold || around.bold, mono: r.mono || around.mono,
-      size: r.size * around.size)
+      size: r.size * around.size, centered: r.centered || around.centered)
     var font = r; font.bold = inner.bold; font.mono = inner.mono; font.size = inner.size
     return content
       .environment(\.okayInherited, inner)
       .font(look.font(font))
       .foregroundStyle(look.tone(inner.color) ?? look.tone("fg") ?? .primary)
       .multilineTextAlignment(r.centered ? .center : .leading)
-      .frame(maxWidth: r.centered ? .infinity : nil, alignment: .center)
+      // a centred part fills what it is given, its content in the middle: a cell of a board
+      .frame(maxWidth: r.centered ? .infinity : nil, maxHeight: r.centered && r.border != nil ? .infinity : nil,
+        alignment: .center)
       .padding(pad)
       .background(look.tone(r.background) ?? .clear, in: RoundedRectangle(cornerRadius: pad > 0 ? 6 : 0))
       .overlay {
@@ -107,4 +117,32 @@ struct Dressed: ViewModifier {
 
 extension View {
   func dressed(_ look: LookSpec, _ roles: String...) -> some View { modifier(Dressed(look: look, roles: roles)) }
+
+  /// A CARD, as iOS groups what belongs together: the look's ground, rounded, on the page's surface
+  func card(_ look: LookSpec) -> some View {
+    padding(look.space * 2)
+      .frame(maxWidth: .infinity, alignment: .leading)
+      .background(look.tone("bg") ?? Color(.systemBackground),
+        in: RoundedRectangle(cornerRadius: 16, style: .continuous))
+  }
+
+  /// a field's ground: filled with the surface tone, rounded, as iOS draws its inputs
+  func filled(_ look: LookSpec) -> some View {
+    padding(.horizontal, look.space * 1.5).padding(.vertical, look.space * 1.25)
+      .background(look.tone("surface") ?? Color(.secondarySystemBackground),
+        in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+  }
+}
+
+extension LookSpec {
+  /// the page's tone: a shade off the cards', as iOS's grouped screens are
+  var page: Color {
+    guard let bg = hexes["bg"].map(Color.rgb), let fg = hexes["fg"].map(Color.rgb) else {
+      return Color(.systemGroupedBackground)
+    }
+    let k = 0.05
+    return Color(red: bg.0 + (fg.0 - bg.0) * k, green: bg.1 + (fg.1 - bg.1) * k, blue: bg.2 + (fg.2 - bg.2) * k)
+  }
+  /// a small label's font: a field's name, a form's title
+  var small: Font { .system(size: size * 0.8, weight: .semibold) }
 }
