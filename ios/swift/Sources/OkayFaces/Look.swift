@@ -27,12 +27,14 @@ struct LookSpec {
   var words: [String: String] = [:]
 
   init() {}
-  init(_ o: JSON) {
+  /// the look the application gives, its palette at night when `dark` and it has one; its sizes times `scale`
+  init(_ o: JSON, dark: Bool = false, scale: Double = 1) {
     let theme = obj(o["theme"])
-    for (tone, hex) in obj(theme["palette"]) {
+    let night = obj(obj(o["dark"])["palette"])
+    for (tone, hex) in (dark && !night.isEmpty ? night : obj(theme["palette"])) {
       if let h = hex as? String { palette[tone] = Color(hex: h); hexes[tone] = h }
     }
-    size = num(theme["size"]) ?? 16; space = num(theme["space"]) ?? 8
+    size = (num(theme["size"]) ?? 16) * scale; space = num(theme["space"]) ?? 8
     serif = str(theme["font"]) == "serif"; mono = str(theme["font"]) == "mono"
     for (role, r) in obj(o["rules"]) { rules[role] = Rule(obj(r)) }
     for (k, w) in obj(o["words"]) { if let s = w as? String { words[k] = s } }

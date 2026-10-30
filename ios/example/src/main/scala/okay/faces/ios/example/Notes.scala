@@ -17,13 +17,15 @@ object Notes {
 
   enum Move {
     case Add(text: String)
+    case Open(index: Int)
     case Clear, GitHub, Remind, Site
   }
   val note: Shape[String] = Shape.text.described("Note", Some("what to remember"))
   val add = Action[String, Move]("add", "Add", Shape.record(Shape.field("text", note))(t => t)(t => t))(Move.Add(_))
 
   def listing(notes: Vector[String]): View = View.stack(View.heading("Notes"),
-    if notes.isEmpty then View.text("Nothing kept yet.") else View.Items(notes.map(View.text)),
+    if notes.isEmpty then View.text("Nothing kept yet.")
+    else View.Items(notes.zipWithIndex.map((n, i) => View.Ref((i + 1).toString, n))),
     View.text(s"${notes.size} kept on this phone"))
 
   /** the repository, as GitHub's API says it: a few of its fields */
@@ -37,11 +39,26 @@ object Notes {
           "Stars" -> View.text(f("stargazers_count")), "Updated" -> View.text(f("pushed_at"))))
       case _ => View.problem("GitHub: not JSON")
 
+  /** a note's own page, one may go back from: remind of it, or delete it */
+  def page(notes: Vector[String], i: Int): Unit ! P =
+    offer[String, P](View.stack(View.heading("Note"), View.text(notes(i))), List(
+        Action.plain[String]("remind-note", "Remind me about it")("remind"),
+        Action.plain[String]("delete", "Delete")("delete"))).flatMap {
+      case "delete" =>
+        val next = notes.patch(i, Nil, 1)
+        save[P]("notes", next.mkString("\n")).flatMap(_ => turn(next))
+      case _ => remind[P]("Notes", notes(i), 5).flatMap(_ => turn(notes))
+    }
+
   def turn(notes: Vector[String]): Unit ! P =
+    val opening = Action[Int, Move]("ref", "Open", Shape.record(Shape.field("key",
+      Shape.choice[Int](notes.indices.map(i => (i + 1).toString -> i)*)))(k => k)(k => k))(Move.Open(_))
     offer[Move, P](listing(notes), List(add, Action.plain[Move]("github", "okay-faces on GitHub")(Move.GitHub),
         Action.plain[Move]("remind", "Remind me in 5 seconds")(Move.Remind),
         Action.plain[Move]("site", "Open okay-effects")(Move.Site)) ++
-      (if notes.nonEmpty then List(Action.plain[Move]("clear", "Clear")(Move.Clear)) else Nil)).flatMap {
+      (if notes.nonEmpty then List(opening, Action.plain[Move]("clear", "Clear")(Move.Clear)) else Nil),
+      okay.faces.Step.Options.returnable).flatMap {
+      case Move.Open(i) => page(notes, i)
       case Move.Add(t) =>
         val next = notes :+ t.trim
         save[P]("notes", next.mkString("\n")).flatMap(_ => turn(next))

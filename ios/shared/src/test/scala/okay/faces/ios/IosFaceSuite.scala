@@ -86,3 +86,31 @@ class IosFaceSuite extends munit.FunSuite {
     assertEquals(at(obj(d.back()), "view"), ViewJson.encode(View.text("one")))
   }
 }
+
+class IosDurableSuite extends munit.FunSuite {
+  import okay.effects.json.Descent
+  def read(s: String): Json = Descent.parse(s).fold(e => fail(e.message), j => j)
+
+  import okay.faces._
+  /** a count, a point each turn */
+  val counting: Durable[Unit] = Durable.loop[Int, Unit]("count", n => Json.num(n), {
+    case Json.Num(n) => Some(n.toInt); case _ => None })(0)(n =>
+    offer[Int, Face](View.text(s"count $n"), List(Action.plain[Int]("more", "More")(n + 1))).map(Right(_)))
+
+  test("taken up where it was: the point kept on the phone, the next run started there") {
+    val phone = Device.memory()
+    val first = IosFace.durable[Machine.type, Unit](counting, phone)(Machine)
+    assert(first.open().contains("count 0"))
+    first.act("""{"action": "more"}"""); first.act("""{"action": "more"}""")
+    assert(phone.kept.get("okay-faces.point").exists(_.contains("\"count\"")), phone.kept.toString)
+    assert(IosFace.durable[Machine.type, Unit](counting, phone)(Machine).open().contains("count 2"))
+    phone.kept("okay-faces.point") = "not a point"
+    assert(IosFace.durable[Machine.type, Unit](counting, phone)(Machine).open().contains("count 0"), "afresh")
+  }
+
+  test("the look at night: the dark palette beside the light one, when the look is on the light tokens") {
+    val l = read(IosFace[Machine.type, Unit](pure[Unit, Face](()))(Machine).look)
+    val dark = l match { case o: Json.Obj => o.get("dark"); case _ => None }
+    assert(dark.exists(Json.print(_).contains(Theme.dark.palette.bg.hex)), Json.print(l))
+  }
+}

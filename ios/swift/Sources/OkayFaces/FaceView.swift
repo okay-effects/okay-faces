@@ -4,54 +4,80 @@ import SwiftUI
 
 public struct OkayFacesView: View {
   @StateObject private var dialogue: Dialogue
+  @Environment(\.colorScheme) private var scheme
+  @Environment(\.dynamicTypeSize) private var typeSize
 
   public init(app: String) { _dialogue = StateObject(wrappedValue: Dialogue(app: app)) }
 
   public var body: some View {
-    let look = dialogue.look
-    let screen = dialogue.screen
-    NavigationStack {
-      ScrollViewReader { scroll in
-        ScrollView {
-          VStack(alignment: .leading, spacing: look.spacing("face")) {
-            Color.clear.frame(height: 0).id("top")
-            if let e = screen.error { Text(e).dressed(look, "notice", "notice-problem") }
-            ForEach(Array(screen.told.enumerated()), id: \.offset) { _, v in
-              Node(view: v, look: look, dialogue: dialogue, refs: false).card(look)
-                .environment(\.okayInherited, Inherited(color: "muted"))
-            }
-            Node(view: screen.view, look: look, dialogue: dialogue, refs: screen.refs).card(look)
-            if !screen.problems.isEmpty {
-              VStack(alignment: .leading) { ForEach(screen.problems, id: \.self) { Text($0) } }
-                .dressed(look, "problems")
-            }
-            Actions(actions: screen.actions.filter { $0.name != "ref" }, look: look, dialogue: dialogue)
-              .id(dialogue.turn)
-            Color.clear.frame(height: 1).id("end")
-          }
-          .padding(.horizontal, look.space * 2).padding(.vertical, look.space)
-        }
-        .scrollDismissesKeyboard(.interactively)
-        // a new step is read from its start: what was told first, then the step
-        .onChange(of: dialogue.turn) { withAnimation { scroll.scrollTo("top", anchor: .top) } }
-      }
-      .background(look.page)
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbarBackground(look.page, for: .navigationBar)
-      .toolbarBackground(.visible, for: .navigationBar)
-      .toolbar {
-        if dialogue.busy {
-          ToolbarItem(placement: .topBarTrailing) { ProgressView().accessibilityIdentifier("busy") }
-        }
-        if screen.back {
-          ToolbarItem(placement: .topBarLeading) {
-            Button { dialogue.back() } label: { Label(look.word("back", "Back"), systemImage: "chevron.backward") }
-              .labelStyle(.titleAndIcon)
-          }
-        }
-      }
+    // the look as the phone is set: its palette at night when dark, its sizes as the person reads (Dynamic Type)
+    let look = LookSpec(dialogue.lookJSON, dark: scheme == .dark, scale: Self.scale(typeSize))
+    // the steps one may go back to, as iOS goes deeper: each pushed, back by the edge of the screen
+    let path = Binding<[Int]>(
+      get: { Array(dialogue.stack.indices.dropFirst()) },
+      set: { p in if p.count < dialogue.stack.count - 1 { dialogue.back() } })
+    NavigationStack(path: path) {
+      Page(index: 0, look: look, dialogue: dialogue)
+        .navigationDestination(for: Int.self) { i in Page(index: i, look: look, dialogue: dialogue) }
     }
     .tint(look.tone("accent"))
+  }
+
+  /// how much larger the person reads than the default, by the system's own measure of body text
+  static func scale(_ size: DynamicTypeSize) -> Double {
+    #if canImport(UIKit)
+    let traits = UITraitCollection(preferredContentSizeCategory: UIContentSizeCategory(size))
+    return UIFontMetrics(forTextStyle: .body).scaledValue(for: 100, compatibleWith: traits) / 100
+    #else
+    return 1
+    #endif
+  }
+}
+
+/// ONE STEP'S PAGE: what was told, the step's view, its problems, its actions — the step at `index` of the stack
+struct Page: View {
+  let index: Int
+  let look: LookSpec
+  @ObservedObject var dialogue: Dialogue
+
+  var body: some View {
+    let screen = dialogue.stack.indices.contains(index) ? dialogue.stack[index] : Screen.empty
+    let top = index == dialogue.stack.count - 1
+    ScrollViewReader { scroll in
+      ScrollView {
+        VStack(alignment: .leading, spacing: look.spacing("face")) {
+          Color.clear.frame(height: 0).id("top")
+          if let e = screen.error { Text(e).dressed(look, "notice", "notice-problem") }
+          ForEach(Array(screen.told.enumerated()), id: \.offset) { _, v in
+            Node(view: v, look: look, dialogue: dialogue, refs: false).card(look)
+              .environment(\.okayInherited, Inherited(color: "muted"))
+          }
+          Node(view: screen.view, look: look, dialogue: dialogue, refs: screen.refs && top).card(look)
+          if !screen.problems.isEmpty {
+            VStack(alignment: .leading) { ForEach(screen.problems, id: \.self) { Text($0) } }
+              .dressed(look, "problems")
+          }
+          Actions(actions: screen.actions.filter { $0.name != "ref" }, look: look, dialogue: dialogue)
+            .id(dialogue.turn).disabled(!top)
+        }
+        .padding(.horizontal, look.space * 2).padding(.vertical, look.space)
+      }
+      .scrollDismissesKeyboard(.interactively)
+      // pulled down: the screen asked again — what an event brought, if anything
+      .refreshable { dialogue.refresh() }
+      // a new step is read from its start: what was told first, then the step
+      .onChange(of: dialogue.turn) { withAnimation { scroll.scrollTo("top", anchor: .top) } }
+    }
+    .background(look.page)
+    .navigationBarTitleDisplayMode(.inline)
+    .toolbarRole(.editor)
+    .toolbarBackground(look.page, for: .navigationBar)
+    .toolbarBackground(.visible, for: .navigationBar)
+    .toolbar {
+      if dialogue.busy && top {
+        ToolbarItem(placement: .topBarTrailing) { ProgressView().accessibilityIdentifier("busy") }
+      }
+    }
   }
 }
 

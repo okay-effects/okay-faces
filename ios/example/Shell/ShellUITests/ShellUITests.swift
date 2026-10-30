@@ -14,7 +14,7 @@ final class ShellUITests: XCTestCase {
 
   func testTheList() {
     let app = XCUIApplication()
-    app.launchArguments = ["-app", "okay.faces.ios.example.TodoApp"]
+    app.launchArguments = ["-app", "okay.faces.ios.example.TodoApp", "-reset", "YES"]
     app.launch()
     XCTAssert(app.staticTexts["Nothing to do."].waitForExistence(timeout: 10))
     shot(app, "todo-1-empty")
@@ -38,6 +38,25 @@ final class ShellUITests: XCTestCase {
     app.buttons["act-remove"].tap()
     XCTAssert(app.staticTexts["Remove which?"].waitForExistence(timeout: 5))
     shot(app, "todo-4-remove-which")
+
+    // iOS may end the app: the list is taken up where it was
+    app.terminate()
+    app.launchArguments = ["-app", "okay.faces.ios.example.TodoApp"]
+    app.launch()
+    XCTAssert(app.buttons["ref-2"].waitForExistence(timeout: 10), "the list kept across runs")
+    XCTAssert(app.staticTexts["1 of 2 done"].exists)
+
+    // at night, and read large: the look's dark palette, the sizes of Dynamic Type
+    XCUIDevice.shared.appearance = .dark
+    Thread.sleep(forTimeInterval: 2)
+    shot(app, "todo-5-dark")
+    XCUIDevice.shared.appearance = .light
+    app.terminate()
+    app.launchArguments = ["-app", "okay.faces.ios.example.TodoApp",
+      "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"]
+    app.launch()
+    XCTAssert(app.buttons["ref-1"].waitForExistence(timeout: 10))
+    shot(app, "todo-6-large")
   }
 
   func testNoughts() {
@@ -54,9 +73,8 @@ final class ShellUITests: XCTestCase {
   /// the device: a note kept between runs, GitHub's page fetched, a reminder notified
   func testNotesOnTheDevice() {
     let app = XCUIApplication()
-    app.launchArguments = ["-app", "okay.faces.ios.example.NotesApp"]
+    app.launchArguments = ["-app", "okay.faces.ios.example.NotesApp", "-reset", "YES"]
     app.launch()
-    if app.buttons["act-clear"].waitForExistence(timeout: 5) { app.buttons["act-clear"].tap() }
     XCTAssert(app.staticTexts["Nothing kept yet."].waitForExistence(timeout: 10))
     let text = app.textFields["field-text"]
     text.tap(); text.typeText("Buy milk")
@@ -64,8 +82,9 @@ final class ShellUITests: XCTestCase {
     XCTAssert(app.staticTexts["1 kept on this phone"].waitForExistence(timeout: 5))
 
     app.terminate()
+    app.launchArguments = ["-app", "okay.faces.ios.example.NotesApp"]
     app.launch()
-    XCTAssert(app.staticTexts["Buy milk"].waitForExistence(timeout: 10), "kept between runs")
+    XCTAssert(app.buttons["ref-1"].waitForExistence(timeout: 10), "kept between runs")
     shot(app, "notes-1-kept")
 
     app.buttons["act-github"].tap()
@@ -81,5 +100,30 @@ final class ShellUITests: XCTestCase {
       .firstMatch
     XCTAssert(banner.waitForExistence(timeout: 15), "the reminder notified")
     shot(app, "notes-3-reminded")
+  }
+
+  /// a note's page, deeper; back by the edge of the screen, as iOS goes back; deleted from there, the list again
+  func testNotePageAndSwipeBack() {
+    let app = XCUIApplication()
+    app.launchArguments = ["-app", "okay.faces.ios.example.NotesApp", "-reset", "YES"]
+    app.launch()
+    let text = app.textFields["field-text"]
+    XCTAssert(text.waitForExistence(timeout: 10))
+    text.tap(); text.typeText("Call mum")
+    app.buttons["act-add"].tap()
+    XCTAssert(app.buttons["ref-1"].waitForExistence(timeout: 5))
+    app.buttons["ref-1"].tap()
+    XCTAssert(app.buttons["act-delete"].waitForExistence(timeout: 5), "the note's page")
+    shot(app, "notes-4-page")
+
+    let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+    edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+    XCTAssert(app.staticTexts["1 kept on this phone"].waitForExistence(timeout: 5), "back by the edge")
+    XCTAssert(!app.buttons["act-delete"].exists)
+
+    app.buttons["ref-1"].tap()
+    XCTAssert(app.buttons["act-delete"].waitForExistence(timeout: 5))
+    app.buttons["act-delete"].tap()
+    XCTAssert(app.staticTexts["Nothing kept yet."].waitForExistence(timeout: 5), "deleted, the list again")
   }
 }

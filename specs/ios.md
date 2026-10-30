@@ -98,6 +98,20 @@ The example is `NotesApp`: notes kept between runs, okay-faces' repository fetch
 notified, the site opened — played by `ShellUITests.testNotesOnTheDevice` on the simulator, the app terminated and
 launched again in between.
 
+## As iOS does it (2026-10-30)
+
+- NIGHT: the look goes with its palette at night (`IosLook.dark`: the same style and words on `Theme.dark` when the
+  look is on `Theme.light`; a look of its own tokens keeps them); the shell takes the one the phone is set to.
+- SIZE: the look's sizes times what the person reads at (Dynamic Type, the system's measure of body text).
+- DEPTH: a step one may go back from (`Step.Options.returnable`, the screen's `back`) is pushed as iOS goes deeper,
+  and back is the edge of the screen or the bar's chevron, which ask the library's `back`. A step whose title is a
+  page already in the stack goes back to that page, as it is now — a list updated by its own form is not a new page,
+  a note deleted from its page returns to the list. A step with nothing behind starts the stack again.
+- KEPT: `IosFace.durable(d, device, look)` — the points a `Durable` program passes are kept on the phone and the next
+  run starts at the last one; iOS may end an app in the background at any time, and the person finds it as they left
+  it. A point that no longer reads starts the program afresh.
+- A tap felt (a light haptic), the keyboard put away when a choice is sent, a page pulled down asked again.
+
 ## Building an application
 
 ```sh
@@ -113,4 +127,3 @@ against the SDK `xcrun` names. Xcode links it with `-lc++`. Tests: the screen an
 
 - An Android face over the same eight functions (JNI): the screen and the lowering are not iOS's.
 - Pictures are drawn by SwiftUI's `Canvas`; a QR code is a picture, so it comes for free.
-- `Durable` points kept by the shell (`UserDefaults`) so an application killed in the background starts where it was.

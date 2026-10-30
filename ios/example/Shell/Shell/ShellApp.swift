@@ -5,6 +5,14 @@ import OkayFaces
 
 @main
 struct ShellApp: App {
+  init() {
+    // `-reset YES`: what the app kept forgotten first — a test starts from nothing
+    if UserDefaults.standard.bool(forKey: "reset") {
+      for k in UserDefaults.standard.dictionaryRepresentation().keys where k.hasPrefix("okay-faces.") {
+        UserDefaults.standard.removeObject(forKey: k)
+      }
+    }
+  }
   var body: some Scene {
     WindowGroup {
       OkayFacesView(app: UserDefaults.standard.string(forKey: "app") ?? "okay.faces.ios.example.TodoApp")

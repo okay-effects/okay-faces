@@ -49,11 +49,32 @@ class IosFace[F <: Runner with Singleton](implicit val fx: F) {
     dialogueIn[A, Device.Rest](faces.steps[A, Device.Phone, Device.Rest](p.on(fx))(splitLast[Device.Rest,
       okay.faces.Face]), onDevice(port), look)
 
-  /** the dialogue of a step machine whose rests are run by `lower` */
+  /**
+   * A PROGRAM THAT IS TAKEN UP WHERE IT WAS (`Durable`): each point it passes kept on the phone under `key`, and the
+   * next run started there — iOS may end an app in the background at any time, and the person finds it as they left
+   * it. A point that no longer reads (the program changed) starts the program afresh.
+   */
+  def durable[A](d: Durable[A], port: Device.Port, look: Look = Look.default,
+    key: String = "okay-faces.point"): IosDialogue = {
+    val kept = Device.answer(Device.Load[Option[String]](key, v => v),
+      port.call(Device.request(Device.Load[Option[String]](key, v => v))))
+    val point = kept.flatMap(t => okay.effects.json.Descent.parse(t).toOption).flatMap {
+      case o: Json.Obj => for (Json.Str(n) <- o.get("name"); s <- o.get("state")) yield Step.Point(n, s)
+      case _ => None
+    }
+    val program = point.flatMap(d.from).getOrElse(d.program)
+    dialogueIn[A, Pure](faces.steps[A, okay.faces.Face, Pure](faces.of(program)), atOnce, look, p => {
+      val text = Json.print(Json.obj("name" -> Json.Str(p.name), "state" -> p.state))
+      port.call(Device.request(Device.Save[Unit](key, Some(text), u => u))); ()
+    })
+  }
+
+  /** the dialogue of a step machine whose rests are run by `lower`; `marked` told each point the program passes */
   def dialogueIn[A, R[_]](first: Step[A, ({ type L[X] = X ! R })#L] ! R, lower: Lower[R],
-    look: Look = Look.default): IosDialogue = {
+    look: Look = Look.default, marked: Step.Point => Unit = _ => ()): IosDialogue = {
     val session = faces.session[A, R](first, look.words.over)
-    val looks = Json.print(IosLook.json(look))
+    session.marked = marked
+    val looks = Json.print(IosLook.json(look, IosLook.dark(look)))
     new IosDialogue {
       /** the last choice's problems, while its step waits */
       private var problems: List[Problem] = Nil
@@ -86,6 +107,9 @@ object IosFace {
   /** the dialogue of a program on a phone, its device answered by `port` — on an iPhone, `IosExports.device` */
   def phone[F <: Runner with Singleton, A](p: Program[A, Device.Phone], port: Device.Port,
     look: Look = Look.default)(implicit fx: F): IosDialogue = new IosFace[F]()(fx).phone(p, port, look)
+  /** the dialogue of a program taken up where it was, its points kept on the phone (`IosFace#durable`) */
+  def durable[F <: Runner with Singleton, A](d: Durable[A], port: Device.Port, look: Look = Look.default)(
+    implicit fx: F): IosDialogue = new IosFace[F]()(fx).durable(d, port, look)
 
   /** THE SCREEN as the shell reads it */
   def screen(told: Vector[View], view: View, actions: List[Action[_]], problems: List[Problem], back: Boolean,
@@ -184,6 +208,19 @@ object IosForm {
 
 /** A LOOK AS THE SHELL READS IT: the tokens, the rules by the role's most specific name, the face's words */
 object IosLook {
+  /** the look at night: the same style and words on the dark tokens, when the look is on the light ones; a look of
+   * its own tokens is its own at night too */
+  def dark(look: Look): Option[Look] = if (look.theme == Theme.light) Some(look.copy(theme = Theme.dark)) else None
+
+  /** the look, and its palette at night (`dark`) when it has one: the shell takes the one the phone is set to */
+  def json(look: Look, night: Option[Look]): Json = json(look) match {
+    case o: Json.Obj =>
+      night.fold[Json](o)(n => Json.Obj(o.fields :+ ("dark" -> Json.obj("palette" -> palette(n.theme)))))
+    case other => other
+  }
+  private def palette(t: Theme): Json =
+    Json.Obj(Tone.all.toVector.map(tone => tone.name -> Json.Str(t.palette(tone).hex)))
+
   def json(look: Look): Json = {
     val t = look.theme
     def font(f: Family): String =
@@ -196,7 +233,7 @@ object IosLook {
     val words = look.words
     Json.obj(
       "theme" -> Json.obj(
-        "palette" -> Json.Obj(Tone.all.toVector.map(tone => tone.name -> Json.Str(t.palette(tone).hex))),
+        "palette" -> palette(t),
         "font" -> Json.Str(font(t.font)), "size" -> Json.num(t.size), "space" -> Json.num(t.space),
         "measure" -> Json.num(t.measure)),
       "rules" -> Json.Obj(look.style.rules.toVector.sortBy(_._1.name).map { case (role, r) => role.name -> rule(r) }),
