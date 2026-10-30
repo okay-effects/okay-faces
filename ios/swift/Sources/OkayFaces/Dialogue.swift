@@ -1,4 +1,4 @@
-// THE APPLICATION'S DIALOGUE, through its library's C functions (specs/ios.md): open it by its class name, send a
+// THE APPLICATION'S DIALOGUE, through its library's C functions (specs/mobile.md): open it by its class name, send a
 // choice, go back; a screen each time. Each call made on the library's own thread (`ScalaThread`) — a step may wait
 // for the network — and its screen published on the main one. One a process, as the library keeps one.
 import Foundation
@@ -20,7 +20,7 @@ public final class Dialogue: ObservableObject {
   @Published private(set) var busy = true
   fileprivate static weak var current: Dialogue?
 
-  /// the application, by the class name of its `IosApp`
+  /// the application, by the class name of its `MobileApp`
   public init(app: String) {
     Dialogue.current = self
     call(.replace) {

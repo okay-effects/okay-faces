@@ -1,4 +1,4 @@
-// What crosses from the application's library: a screen, its views, its actions' fields, the look (specs/ios.md).
+// What crosses from the application's library: a screen, its views, its actions' fields, the look (specs/mobile.md).
 // Read from JSON as it comes; nothing here knows an application.
 import Foundation
 

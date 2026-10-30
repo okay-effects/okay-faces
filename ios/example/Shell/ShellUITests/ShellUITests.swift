@@ -14,7 +14,7 @@ final class ShellUITests: XCTestCase {
 
   func testTheList() {
     let app = XCUIApplication()
-    app.launchArguments = ["-app", "okay.faces.ios.example.TodoApp", "-reset", "YES"]
+    app.launchArguments = ["-app", "okay.faces.mobile.example.TodoApp", "-reset", "YES"]
     app.launch()
     XCTAssert(app.staticTexts["Nothing to do."].waitForExistence(timeout: 10))
     shot(app, "todo-1-empty")
@@ -41,7 +41,7 @@ final class ShellUITests: XCTestCase {
 
     // iOS may end the app: the list is taken up where it was
     app.terminate()
-    app.launchArguments = ["-app", "okay.faces.ios.example.TodoApp"]
+    app.launchArguments = ["-app", "okay.faces.mobile.example.TodoApp"]
     app.launch()
     XCTAssert(app.buttons["ref-2"].waitForExistence(timeout: 10), "the list kept across runs")
     XCTAssert(app.staticTexts["1 of 2 done"].exists)
@@ -52,7 +52,7 @@ final class ShellUITests: XCTestCase {
     shot(app, "todo-5-dark")
     XCUIDevice.shared.appearance = .light
     app.terminate()
-    app.launchArguments = ["-app", "okay.faces.ios.example.TodoApp",
+    app.launchArguments = ["-app", "okay.faces.mobile.example.TodoApp",
       "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"]
     app.launch()
     XCTAssert(app.buttons["ref-1"].waitForExistence(timeout: 10))
@@ -61,7 +61,7 @@ final class ShellUITests: XCTestCase {
 
   func testNoughts() {
     let app = XCUIApplication()
-    app.launchArguments = ["-app", "okay.faces.ios.example.NoughtsApp"]
+    app.launchArguments = ["-app", "okay.faces.mobile.example.NoughtsApp"]
     app.launch()
     XCTAssert(app.buttons["ref-5"].waitForExistence(timeout: 10))
     shot(app, "noughts-1-board")
@@ -73,7 +73,7 @@ final class ShellUITests: XCTestCase {
   /// the device: a note kept between runs, GitHub's page fetched, a reminder notified
   func testNotesOnTheDevice() {
     let app = XCUIApplication()
-    app.launchArguments = ["-app", "okay.faces.ios.example.NotesApp", "-reset", "YES"]
+    app.launchArguments = ["-app", "okay.faces.mobile.example.NotesApp", "-reset", "YES"]
     app.launch()
     XCTAssert(app.staticTexts["Nothing kept yet."].waitForExistence(timeout: 10))
     let text = app.textFields["field-text"]
@@ -82,7 +82,7 @@ final class ShellUITests: XCTestCase {
     XCTAssert(app.staticTexts["1 kept on this phone"].waitForExistence(timeout: 5))
 
     app.terminate()
-    app.launchArguments = ["-app", "okay.faces.ios.example.NotesApp"]
+    app.launchArguments = ["-app", "okay.faces.mobile.example.NotesApp"]
     app.launch()
     XCTAssert(app.buttons["ref-1"].waitForExistence(timeout: 10), "kept between runs")
     shot(app, "notes-1-kept")
@@ -105,7 +105,7 @@ final class ShellUITests: XCTestCase {
   /// a note's page, deeper; back by the edge of the screen, as iOS goes back; deleted from there, the list again
   func testNotePageAndSwipeBack() {
     let app = XCUIApplication()
-    app.launchArguments = ["-app", "okay.faces.ios.example.NotesApp", "-reset", "YES"]
+    app.launchArguments = ["-app", "okay.faces.mobile.example.NotesApp", "-reset", "YES"]
     app.launch()
     let text = app.textFields["field-text"]
     XCTAssert(text.waitForExistence(timeout: 10))

@@ -1,5 +1,5 @@
 // THE ACTIONS: a button each, or a form of the fields the library lowered — values kept by dotted name and sent as
-// they are; the library reads them back along the action's schema (specs/ios.md).
+// they are; the library reads them back along the action's schema (specs/mobile.md).
 import SwiftUI
 
 struct Actions: View {

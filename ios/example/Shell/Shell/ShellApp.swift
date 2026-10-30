@@ -15,7 +15,7 @@ struct ShellApp: App {
   }
   var body: some Scene {
     WindowGroup {
-      OkayFacesView(app: UserDefaults.standard.string(forKey: "app") ?? "okay.faces.ios.example.TodoApp")
+      OkayFacesView(app: UserDefaults.standard.string(forKey: "app") ?? "okay.faces.mobile.example.TodoApp")
     }
   }
 }

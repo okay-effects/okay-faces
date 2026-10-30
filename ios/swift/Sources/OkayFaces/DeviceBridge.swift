@@ -1,4 +1,4 @@
-// THE PHONE, AS THE PROGRAM ASKS IT (specs/ios.md, "The device"): each operation of the library's `Device` effect
+// THE PHONE, AS THE PROGRAM ASKS IT (specs/mobile.md, "The device"): each operation of the library's `Device` effect
 // answered here by the system — URLSession, UserDefaults, the keychain, UserNotifications, the opening of a link.
 // Called on the library's own thread (`ScalaThread`), never the main one: an operation may wait for the network.
 import Foundation

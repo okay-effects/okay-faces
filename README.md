@@ -74,7 +74,8 @@ The block above is compiled and run by `sbt docsCheck/test`.
 | MCP | `mcp` | the dialogue as tools for an agent, on [okay-mcp](https://github.com/okay-effects/okay-mcp): stdio, or HTTP with sessions; a domain effect's operations as tools too |
 | REST | `rest` | the dialogue as a JSON API with links and affordances (HATEOAS); a domain effect as resources, and performed from afar over `Fetch` — on [okay-http](https://github.com/okay-effects/okay-http) |
 | HTML | `html` | pages from the server, structural HTML5, no script; forms posted; the look as `/okay.css` |
-| iOS | `ios` | the program in Scala Native, a static library of eight C functions (screens and choices as JSON); the screen in SwiftUI (`ios/swift`, the package `OkayFaces`), knowing no application; forms lowered by dotted name, the look interpreted; the phone as an effect, `Device` — the network, storage, the keychain, notifications, links — answered by Swift ([specs/ios.md](specs/ios.md)) |
+| Android | `mobile`, `android/` | the program as Scala on Android's runtime, the screen in Jetpack Compose (`android/okayfaces`), knowing no application; the same screens, forms, look and `Device` as the iPhone's — the network, storage, the Keystore, notifications ([specs/mobile.md](specs/mobile.md)) |
+| iOS | `mobile`, `ios/` | the program in Scala Native, a static library of eight C functions (screens and choices as JSON); the screen in SwiftUI (`ios/swift`, the package `OkayFaces`), knowing no application; forms lowered by dotted name, the look interpreted; the phone as an effect, `Device` — the network, storage, the keychain, notifications, links — answered by Swift ([specs/mobile.md](specs/mobile.md)) |
 
 Where it runs is a deploying, not a face: the page alone (a static host), a server on the JVM (`HtmlFace.serve`,
 `RestFace.serve`), or **Cloudflare Workers** — `web/cloudflare`, one more main, one line,
@@ -121,15 +122,16 @@ sbt -Dplatforms=js examplesJS/fullLinkJS "examples/runMain okay.faces.examples.N
                                                                    # the whole game in the browser
 ```
 
-On an iPhone, the same two programs as `IosApp`s (`ios/example`), and a third that needs the phone — `NotesApp`:
+On a phone, the same two programs as `MobileApp`s (`ios/example`), and a third that needs the phone — `NotesApp`:
 notes kept between runs, a page fetched, a reminder notified: the library for the simulator, then the shell
 (XcodeGen makes its project):
 
 ```
-ios/build.sh simulator                                             # libokay-faces-ios-example.a for the shell
-cd ios/example/Shell && xcodegen && open Shell.xcodeproj           # run; `-app okay.faces.ios.example.NoughtsApp`
+ios/build.sh simulator                                             # libokay-faces-mobile-example.a for the shell
+cd ios/example/Shell && xcodegen && open Shell.xcodeproj           # run; `-app okay.faces.mobile.example.NoughtsApp`
 xcodebuild -project Shell.xcodeproj -scheme Shell -destination 'platform=iOS Simulator,name=iPhone 16 Pro' test
                                                                    # both played by taps (ShellUITests), screens kept
+android/test.sh                                                    # Android: built, played on the emulator
 ```
 
 The first application is [verity](https://github.com/okay-effects/verity), a keeper of one's personal data, on every
@@ -143,7 +145,7 @@ at the root keeps the author's line breaks and wraps only what is too long).
 
 ```
 sbt -Dplatforms=js +test +examples/test +laminarJS/test +domJS/test examplesJS/test docsCheck/test
-sbt -Dplatforms=native iosNative/test                              # the iOS face's C functions, on the Mac
+sbt -Dplatforms=native mobileNative/test                           # the iOS face's C functions, on the Mac
 ```
 
 okay-simple 0.1.1, okay-http 0.1.0 and okay-mcp 0.1.0 come from their release repositories: nothing to publish

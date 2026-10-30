@@ -1,5 +1,5 @@
 // swift-tools-version:5.9
-// okay-faces' iOS face, its Swift half (specs/ios.md): a SwiftUI face that knows no application — it draws the
+// okay-faces' iOS face, its Swift half (specs/mobile.md): a SwiftUI face that knows no application — it draws the
 // screens an application's Scala Native library gives and sends back the choices. The library is the application's,
 // linked by the app (its static library and `-lc++`); here only its C header.
 import PackageDescription

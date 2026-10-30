@@ -254,26 +254,28 @@ def docBlocks = Def.task {
     }.mkString + "}\n")
   classes :+ suite
 }
-/** THE iOS FACE (specs/ios.md): the program in Scala Native, a static library whose C functions give screens and take
- * choices as JSON; the drawing in SwiftUI (`ios/swift`, the package `OkayFaces`), knowing no application. The screen
- * and the form's lowering are shared and tested on the JVM; the C functions on Scala Native, on the host */
-lazy val ios = CrossProject("ios", file("ios"))(platformsOf(Set("native")): _*).crossType(CrossType.Full)
+/** THE PHONES' FACE (specs/mobile.md): the program's screens and choices as JSON text, the form lowered, the look as
+ * data, the phone as an effect (`Device`) — shared, tested on the JVM. Its shells draw it natively and know no
+ * application: on an iPhone the program is Scala Native, a static library of C functions (`native`), drawn by
+ * SwiftUI (`ios/swift`); on Android the program is JVM bytecode on ART, drawn by Jetpack Compose (`android/`) */
+lazy val mobile = CrossProject("mobile", file("mobile"))(platformsOf(Set("native")): _*).crossType(CrossType.Full)
   .dependsOn(core)
-  .settings(crossBuilt, name := "okay-faces-ios",
+  .settings(crossBuilt, name := "okay-faces-mobile",
     libraryDependencies += "io.github.okay-effects" %%% "okay-effects-machine" % okayEffects % Test)
-  .jvmConfigure(_.withId("ios")).onNative(_.withId("iosNative"))
+  .jvmConfigure(_.withId("mobile")).onNative(_.withId("mobileNative"))
 
-/** THE EXAMPLES ON AN iPHONE: noughts and crosses and the list, as `IosApp`s — `ios/build.sh` links them into a static
- * library for the simulator or a device (`OKAY_IOS_TARGET`), the Xcode project in `ios/example/Shell` draws them */
-lazy val iosExample = CrossProject("iosExample", file("ios/example"))(platformsOf(Set("native")): _*)
-  .crossType(CrossType.Pure).dependsOn(ios)
-  .settings(name := "okay-faces-ios-example", publish / skip := true, scalaVersion := scala3,
+/** THE EXAMPLES ON A PHONE: the list, noughts and crosses, notes on the device — `MobileApp`s. `ios/build.sh` links
+ * them into a static library for an iPhone (`OKAY_IOS_TARGET`), the Xcode project in `ios/example/Shell` draws them;
+ * `android/build.sh` puts their JVM jar into the Android shell (`android/`) */
+lazy val mobileExample = CrossProject("mobileExample", file("mobile/example"))(platformsOf(Set("native")): _*)
+  .crossType(CrossType.Pure).dependsOn(mobile)
+  .settings(name := "okay-faces-mobile-example", publish / skip := true, scalaVersion := scala3,
     crossScalaVersions := Seq(scala3),
     Compile / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "examples" / "src" / "main" / "scala",
     libraryDependencies ++= Seq("io.github.okay-effects" %%% "okay-effects-machine" % okayEffects,
       "io.github.okay-effects" %%% "okay-effects-free" % okayEffects,
       "org.scalameta" %%% "munit" % "1.2.3" % Test))
-  .jvmConfigure(_.withId("iosExample")).onNative(_.withId("iosExampleNative").settings(IosBuild.library))
+  .jvmConfigure(_.withId("mobileExample")).onNative(_.withId("mobileExampleNative").settings(IosBuild.library))
 
 lazy val docsCheck = (project in file("docs/check"))
   .dependsOn(core.jvm, test.jvm, term.jvm, swing, mcp.jvm, rest.jvm, html.jvm)
@@ -283,7 +285,7 @@ lazy val docsCheck = (project in file("docs/check"))
 
 /** every module on every platform asked: the cross-built ones' projects, the web ones' when js is asked */
 lazy val root = (project in file(".")).aggregate((Seq[ProjectReference](swing, docsCheck) ++
-    Seq(core, test, term, mcp, rest, html, cloudflare, examples, ios, iosExample)
+    Seq(core, test, term, mcp, rest, html, cloudflare, examples, mobile, mobileExample)
       .flatMap(_.projects.values.map(p => p: ProjectReference)) ++
     ((if (platformsAsked("js"))
         Seq[ProjectReference](laminar.js, domFace.js, airstream.js, waypoint.js, examplesTodo.js, examplesRemote.js,
