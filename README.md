@@ -127,7 +127,7 @@ notes kept between runs, a page fetched, a reminder notified: the library for th
 (XcodeGen makes its project):
 
 ```
-ios/build.sh simulator                                             # libokay-faces-mobile-example.a for the shell
+ios/build.sh                                                       # OkayExample.xcframework: simulator and device
 cd ios/example/Shell && xcodegen && open Shell.xcodeproj           # run; `-app okay.faces.mobile.example.NoughtsApp`
 xcodebuild -project Shell.xcodeproj -scheme Shell -destination 'platform=iOS Simulator,name=iPhone 16 Pro' test
                                                                    # both played by taps (ShellUITests), screens kept

@@ -119,13 +119,23 @@ launched again in between.
 ## Building an application
 
 ```sh
-sbt -Dplatforms=native "mobileExampleNative/nativeLink"  # the example's library for the simulator
-ios/build.sh <sbt project> <out dir> [device|simulator]   # a library per architecture, the header beside it
+ios/build.sh [sbt project] [name] [out dir]   # the app's Scala for the simulator and a device, one XCFramework
+cd ios/example/Shell && xcodegen               # the examples' Xcode project: OkayFaces, the XCFramework, -lc++
 ```
 
-The library's target is `arm64-apple-ios17.0-simulator` or `arm64-apple-ios17.0` (`OKAY_IOS_TARGET`), compiled
-against the SDK `xcrun` names. Xcode links it with `-lc++`. Tests: the screen and the lowering on the JVM
-(`MobileFaceSuite`), the C functions on the Mac host (a native test), the shell by `xcodebuild` on the simulator.
+`ios/build.sh` links Scala Native twice — `arm64-apple-ios17.0-simulator` and `arm64-apple-ios17.0` (`OKAY_IOS_TARGET`,
+against the SDK `xcrun` names), each from a clean slate (the other target's objects and archive removed first) — and
+puts both into `<name>.xcframework`; Xcode takes the slice its build is for, so a project links the one framework, no
+search paths. The library is linked for size (`Mode.releaseSize`; LTO is not used: its objects are bitcode, which an
+XCFramework does not take). Measured 2026-10-30, the examples' app for a device, Release: 5.07 MB, 3.43 MB stripped
+as the App Store ships it (3.83 MB with `releaseFast`).
+
+ON A PHONE OF ONE'S OWN: open `Shell.xcodeproj`, choose a team under Signing & Capabilities (a free Apple ID will do
+for one's own phone), connect the iPhone with Developer Mode on, run. Without signing, a device build is checked by
+`xcodebuild -sdk iphoneos -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build`.
+
+Tests: the screen and the lowering on the JVM (`MobileFaceSuite`), the C functions on the Mac host (a native test),
+the shell by `xcodebuild ... test` on the simulator (`ShellUITests`).
 
 ## Android (2026-10-30)
 
