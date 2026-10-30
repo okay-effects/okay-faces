@@ -15,3 +15,22 @@ class AppsSuite extends munit.FunSuite {
     assert(Json.print(after).contains("\"ref\""), Json.print(after))
   }
 }
+
+class NotesSuite extends munit.FunSuite {
+  import okay.faces.ios.{Device, IosApp}
+  def read(s: String): Json = okay.effects.json.Descent.parse(s).fold(e => fail(e.message), j => j)
+
+  test("notes on a phone in memory: kept between runs, GitHub's answer shown, a reminder posted") {
+    val phone = new Device.Memory(network = (_, u, _) =>
+      Device.Reply(200, Map.empty, """{"description": "faces", "stargazers_count": 3, "pushed_at": "today"}"""))
+    IosApp.phone = phone
+    val d = new NotesApp().dialogue
+    assert(d.open().contains("Nothing kept yet."))
+    d.act("""{"action": "add", "form": {"text": "Buy milk"}}""")
+    assertEquals(phone.kept.get("notes"), Some("Buy milk"))
+    assert(new NotesApp().dialogue.open().contains("Buy milk"), "kept for the next run")
+    assert(d.act("""{"action": "github"}""").contains("\"Stars\""))
+    assert(d.act("""{"action": "remind"}""").contains("A reminder in 5 seconds."))
+    assertEquals(phone.notified.toList, List("Notes" -> "Buy milk"))
+  }
+}

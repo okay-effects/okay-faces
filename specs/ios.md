@@ -11,7 +11,7 @@ at the one place a cut costs nothing — between the step machine and the drawin
 
 - **Scala Native** (`ios`, a static library `libokay-app.a` per application): the PROGRAM, its handlers, its
   `Session` (history, told views, events). It knows no UIKit. What it gives the shell is a SCREEN as JSON, and what it
-  takes is a CHOICE as JSON — the REST face's wire, without HTTP, through seven C functions.
+  takes is a CHOICE as JSON — the REST face's wire, without HTTP, through eight C functions.
 - **Swift** (`ios/swift`, the package `OkayFaces`): a SwiftUI face that knows no application, as the remote Laminar
   face knows none: it draws whatever `View` comes, draws a form from whatever fields come, and sends back what was
   typed. It interprets the `Look` (tones, rules by role, words) as the Swing face does: never a colour or a word of its
@@ -35,6 +35,7 @@ char* okay_faces_act(const char* choice);       // {"action": name, "form": {"a.
 char* okay_faces_back(void);                    // the step before, when the screen said `back`
 char* okay_faces_screen(void);                  // the screen now: after `moved`, what the event moved it to
 char* okay_faces_look(void);                    // the application's look
+void okay_faces_on_device(char* (*device)(const char*));  // the phone: an operation in, its answer out (malloc'd)
 void okay_faces_on_moved(void (*moved)(void));  // told when an event moved the dialogue on by itself
 void okay_faces_free(char* s);                  // every string returned is the caller's, freed here
 ```
@@ -72,6 +73,31 @@ action with the ref's key.
 `mark-done`). The shell maps tones to colours, `size` to the base size's multiple, `pad`/`gap` to the unit of space,
 `flow` to a row or a column.
 
+## The device (2026-10-30)
+
+What a program asks of the phone is an effect, `Device`, its operations data with their answers: `Fetch` (the
+network; a failure is status 0 and the reason), `Load`/`Save` (UserDefaults), `Secret`/`Hide` (the keychain), `Now`,
+`Notify` (a notification, at once or after seconds; whether the person allows them), `Open` (a link, by the system).
+The words are `okay.faces.ios.phone` (`fetch`, `load`, `save`, `forget`, `secret`, `hide`, `now`, `remind`, `open`);
+a program on a phone is `A ! Device.Phone` — `Row[*[Pure] + *[Device] + *[Face], X]` in Scala 3 — and
+`IosFace.phone(program, device)` its dialogue.
+
+DECIDED: every operation is answered IN PLACE, by a port — one call, JSON in and JSON out (`Device.Port`). The face
+handles `Face` into steps as ever, and runs each step's rest with `Device` handled by the port (`IosFace.onDevice`),
+so a stateful handler stays inside the program and the device is the world outside, as specs/face-core.md asks. On
+an iPhone the port is the shell's: `okay_faces_on_device(char* (*)(const char*))` registers a C function, which the
+library calls with an operation and whose answer — made by `malloc` (`strdup`) — it frees. Swift answers it with
+URLSession, UserDefaults, the keychain, UserNotifications, `UIApplication.open` (`DeviceBridge.swift`). On the JVM and
+in tests the port is `Device.Memory` (maps, a network function, a clock, what was notified and opened).
+
+An operation may wait — the network does — so the library is never called on the main thread: the shell has one
+thread of its own for it (`ScalaThread`: Scala Native started and called there alone, so its collector sees one
+stack), and the screen is published on the main thread after; a step at work shows a progress mark in the bar.
+
+The example is `NotesApp`: notes kept between runs, okay-faces' repository fetched from GitHub's API, a reminder
+notified, the site opened — played by `ShellUITests.testNotesOnTheDevice` on the simulator, the app terminated and
+launched again in between.
+
 ## Building an application
 
 ```sh
@@ -85,6 +111,6 @@ against the SDK `xcrun` names. Xcode links it with `-lc++`. Tests: the screen an
 
 ## Open
 
-- An Android face over the same seven functions (JNI): the screen and the lowering are not iOS's.
+- An Android face over the same eight functions (JNI): the screen and the lowering are not iOS's.
 - Pictures are drawn by SwiftUI's `Canvas`; a QR code is a picture, so it comes for free.
 - `Durable` points kept by the shell (`UserDefaults`) so an application killed in the background starts where it was.

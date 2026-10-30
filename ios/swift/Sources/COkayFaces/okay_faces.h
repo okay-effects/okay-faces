@@ -9,6 +9,9 @@ char* okay_faces_back(void);                    // the step before
 char* okay_faces_screen(void);                  // the screen now: after `moved`, what the event moved it to
 char* okay_faces_look(void);                    // the application's look (JSON)
 void okay_faces_on_moved(void (*moved)(void));  // told when an event moved the dialogue on by itself
+// the phone, as the shell answers it: an operation as JSON, its answer as JSON made by malloc (strdup) — freed by the
+// library; called on the thread the shell called the library on, never to be the main one (specs/ios.md)
+void okay_faces_on_device(char* (*device)(const char* request));
 void okay_faces_free(char* s);                  // every string returned is the caller's, freed here
 
 #endif

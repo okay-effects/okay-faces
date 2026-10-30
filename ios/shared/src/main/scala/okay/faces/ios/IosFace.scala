@@ -28,26 +28,48 @@ class IosFace[F <: Runner with Singleton](implicit val fx: F) {
   import fx._
   val faces: Faces[fx.type] = new Faces[fx.type]()(fx)
 
+  /** HOW THE REST OF A STEP IS RUN: `Pure` at once; a program on a phone with its device handled in place */
+  trait Lower[R[_]] { def apply[X](p: X ! R): X }
+  val atOnce: Lower[Pure] = new Lower[Pure] { def apply[X](p: X ! Pure): X = run(p) }
+  /** the device's operations answered by `port`, each in place, then run */
+  def onDevice(port: Device.Port): Lower[Device.Rest] = new Lower[Device.Rest] {
+    def apply[X](p: X ! Device.Rest): X = run(handle[Device, Device.Rest, Pure, X, X](p,
+      new TailHandler[Device, Pure, X, X] {
+        def ret(x: X) = pure(x)
+        def answer[Y](op: Device[Y]): Y = Device.answer(op, port.call(Device.request(op)))
+      })(splitLast[Pure, Device]))
+  }
+
   /** the program as a dialogue for the shell, in `look` */
-  def dialogue[A](p: Program[A, okay.faces.Face], look: Look = Look.default): IosDialogue = {
-    val session = faces.session[A, Pure](faces.steps[A, okay.faces.Face, Pure](faces.of(p)), look.words.over)
+  def dialogue[A](p: Program[A, okay.faces.Face], look: Look = Look.default): IosDialogue =
+    dialogueIn[A, Pure](faces.steps[A, okay.faces.Face, Pure](faces.of(p)), atOnce, look)
+
+  /** A PROGRAM ON A PHONE: its screens and its device — the device's operations answered by `port` (the shell's) */
+  def phone[A](p: Program[A, Device.Phone], port: Device.Port, look: Look = Look.default): IosDialogue =
+    dialogueIn[A, Device.Rest](faces.steps[A, Device.Phone, Device.Rest](p.on(fx))(splitLast[Device.Rest,
+      okay.faces.Face]), onDevice(port), look)
+
+  /** the dialogue of a step machine whose rests are run by `lower` */
+  def dialogueIn[A, R[_]](first: Step[A, ({ type L[X] = X ! R })#L] ! R, lower: Lower[R],
+    look: Look = Look.default): IosDialogue = {
+    val session = faces.session[A, R](first, look.words.over)
     val looks = Json.print(IosLook.json(look))
     new IosDialogue {
       /** the last choice's problems, while its step waits */
       private var problems: List[Problem] = Nil
       private def screen(): String = {
-        val (told, view) = run(session.shown)
-        val actions = run(session.actions)
-        Json.print(IosFace.screen(told, view, actions, problems, session.canGoBack, run(session.done),
-          run(session.listening)))
+        val (told, view) = lower(session.shown)
+        val actions = lower(session.actions)
+        Json.print(IosFace.screen(told, view, actions, problems, session.canGoBack, lower(session.done),
+          lower(session.listening)))
       }
       def open(): String = synchronized(IosFace.guarded(screen()))
       def act(choice: String): String = synchronized(IosFace.guarded {
         val (name, form) = IosFace.choice(choice)
-        val actions = run(session.actions)
+        val actions = lower(session.actions)
         val args = actions.find(_.name == name).fold[Json](Json.Obj.empty)(a =>
           FormJson.collect(a.params.erased, form))
-        problems = run(session.choose(Chosen(name, args))).fold(_.problems, _ => Nil)
+        problems = lower(session.choose(Chosen(name, args))).fold(_.problems, _ => Nil)
         screen()
       })
       def back(): String = synchronized(IosFace.guarded { if (session.back()) problems = Nil; screen() })
@@ -61,6 +83,9 @@ object IosFace {
   /** the dialogue of a program written over `import okay.faces._`, on the implementation in scope */
   def apply[F <: Runner with Singleton, A](p: Program[A, okay.faces.Face], look: Look = Look.default)(
     implicit fx: F): IosDialogue = new IosFace[F]()(fx).dialogue(p, look)
+  /** the dialogue of a program on a phone, its device answered by `port` — on an iPhone, `IosExports.device` */
+  def phone[F <: Runner with Singleton, A](p: Program[A, Device.Phone], port: Device.Port,
+    look: Look = Look.default)(implicit fx: F): IosDialogue = new IosFace[F]()(fx).phone(p, port, look)
 
   /** THE SCREEN as the shell reads it */
   def screen(told: Vector[View], view: View, actions: List[Action[_]], problems: List[Problem], back: Boolean,

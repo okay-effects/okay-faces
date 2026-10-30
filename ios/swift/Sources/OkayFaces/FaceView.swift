@@ -14,6 +14,7 @@ public struct OkayFacesView: View {
       ScrollViewReader { scroll in
         ScrollView {
           VStack(alignment: .leading, spacing: look.spacing("face")) {
+            Color.clear.frame(height: 0).id("top")
             if let e = screen.error { Text(e).dressed(look, "notice", "notice-problem") }
             ForEach(Array(screen.told.enumerated()), id: \.offset) { _, v in
               Node(view: v, look: look, dialogue: dialogue, refs: false).card(look)
@@ -31,11 +32,17 @@ public struct OkayFacesView: View {
           .padding(.horizontal, look.space * 2).padding(.vertical, look.space)
         }
         .scrollDismissesKeyboard(.interactively)
-        .onChange(of: screen.told.count + screen.actions.count) { scroll.scrollTo("end") }
+        // a new step is read from its start: what was told first, then the step
+        .onChange(of: dialogue.turn) { withAnimation { scroll.scrollTo("top", anchor: .top) } }
       }
       .background(look.page)
       .navigationBarTitleDisplayMode(.inline)
+      .toolbarBackground(look.page, for: .navigationBar)
+      .toolbarBackground(.visible, for: .navigationBar)
       .toolbar {
+        if dialogue.busy {
+          ToolbarItem(placement: .topBarTrailing) { ProgressView().accessibilityIdentifier("busy") }
+        }
         if screen.back {
           ToolbarItem(placement: .topBarLeading) {
             Button { dialogue.back() } label: { Label(look.word("back", "Back"), systemImage: "chevron.backward") }
