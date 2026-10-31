@@ -126,4 +126,13 @@ final class ShellUITests: XCTestCase {
     app.buttons["act-delete"].tap()
     XCTAssert(app.staticTexts["Nothing kept yet."].waitForExistence(timeout: 5), "deleted, the list again")
   }
+
+  /// how long the app takes to launch: Scala Native started, the program opened, its first screen drawn
+  func testLaunch() {
+    measure(metrics: [XCTApplicationLaunchMetric()]) {
+      let app = XCUIApplication()
+      app.launchArguments = ["-app", "okay.faces.mobile.example.TodoApp"]
+      app.launch()
+    }
+  }
 }

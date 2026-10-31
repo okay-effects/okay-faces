@@ -18,6 +18,16 @@ android {
   compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
   kotlinOptions { jvmTarget = "17" }
   buildFeatures { compose = true }
+  // shrunk as an app is shipped: R8 with okay-faces' rules (the AAR's), signed with the debug key to run here;
+  // played from outside by android/release.py, the instrumentation's own libraries being shrunk away with it
+  buildTypes {
+    release {
+      isMinifyEnabled = true
+      isShrinkResources = true
+      proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
+      signingConfig = signingConfigs.getByName("debug")
+    }
+  }
   packaging { resources { excludes += setOf("META-INF/*", "**/*.tasty", "rootdoc.txt", "library.properties") } }
 }
 dependencies {

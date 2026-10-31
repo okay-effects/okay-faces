@@ -159,6 +159,17 @@ lowering and the device are one code; only the drawing differs.
 - `android/build.sh` puts the examples' runtime classpath into `android/libs`; `android/test.sh` builds, runs the
   tests on the device adb sees and pulls the screens (`/sdcard/Download/okay-faces`).
 
+## Size and start (measured 2026-10-31)
+
+| | iPhone (Release, arm64) | Android (Pixel 8 emulator, Android 35) |
+|---|---|---|
+| the examples' app | 3.43 MB stripped (5.07 MB with symbols) | 1.27 MB APK with R8 (16.2 MB debug, not shrunk) |
+| start | 0.79–1.06 s to launched (`XCTApplicationLaunchMetric`, simulator) | 0.17–0.30 s to the first frame (`am start -W`; 0.74–1.4 s debug) |
+
+On Android the release is shrunk by R8 with okay-faces' rules, shipped in the AAR (`consumer-rules.pro`: an app's
+`MobileApp` kept, being opened by name). The shrunk app is played from outside — `android/release.py`, adb and
+uiautomator, by what the screen says — since the instrumentation's own libraries are shrunk away with the app.
+
 ## Open
 
 - Pictures are drawn by SwiftUI's `Canvas`; a QR code is a picture, so it comes for free.
