@@ -53,7 +53,9 @@ fun Main(label: String, look: LookSpec, main: Boolean, enabled: Boolean, modifie
   if (main) Button(click, m, enabled, shape, ButtonDefaults.buttonColors(containerColor = tone,
     contentColor = look.tone(r.color) ?: Color.White)) { text() }
   else FilledTonalButton(click, m, enabled, shape, ButtonDefaults.filledTonalButtonColors(
-    containerColor = tone.copy(alpha = 0.18f), contentColor = tone)) { text() }
+    // the text a shade toward the foreground: enough contrast to read on the tint (4.5 to 1)
+    containerColor = tone.copy(alpha = 0.10f),
+    contentColor = androidx.compose.ui.graphics.lerp(tone, look.tone("fg") ?: Color.Black, 0.3f))) { text() }
 }
 
 /** one action's form: its fields, those held back under the look's "Options", the button */

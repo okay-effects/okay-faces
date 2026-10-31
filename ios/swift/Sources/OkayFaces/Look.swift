@@ -145,6 +145,11 @@ extension LookSpec {
     let k = 0.05
     return Color(red: bg.0 + (fg.0 - bg.0) * k, green: bg.1 + (fg.1 - bg.1) * k, blue: bg.2 + (fg.2 - bg.2) * k)
   }
+  /// a tone moved toward another by `k` (0 the one, 1 the other): a text darker on a light ground, say
+  func mix(_ a: String, _ b: String, _ k: Double) -> Color? {
+    guard let x = hexes[a].map(Color.rgb), let y = hexes[b].map(Color.rgb) else { return tone(a) }
+    return Color(red: x.0 + (y.0 - x.0) * k, green: x.1 + (y.1 - x.1) * k, blue: x.2 + (y.2 - x.2) * k)
+  }
   /// a small label's font: a field's name, a form's title
   var small: Font { .system(size: size * 0.8, weight: .semibold) }
 }

@@ -93,7 +93,9 @@ private fun Page(dialogue: Dialogue, look: LookSpec, index: Int, modifier: Modif
   LaunchedEffect(dialogue.turn) { scroll.animateScrollTo(0) }
   // pulled down: the screen asked again — what an event brought, if anything
   PullToRefreshBox(isRefreshing = false, onRefresh = { dialogue.refresh() }, modifier = modifier.fillMaxSize()) {
-    Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = (look.space * 2).dp,
+    // a column a person reads, on a tablet or a phone on its side: at most 680 wide, in the middle
+    Box(Modifier.fillMaxSize().verticalScroll(scroll), contentAlignment = Alignment.TopCenter) {
+    Column(Modifier.widthIn(max = 680.dp).fillMaxWidth().padding(horizontal = (look.space * 2).dp,
       vertical = look.space.dp), verticalArrangement = Arrangement.spacedBy((look.space * 2).dp)) {
       screen.error?.let { Dressed(look, "notice", "notice-problem") { Text(it) } }
       screen.told.forEach { v ->
@@ -105,6 +107,7 @@ private fun Page(dialogue: Dialogue, look: LookSpec, index: Int, modifier: Modif
         Column { screen.problems.forEach { Text(it) } }
       }
       key(dialogue.turn) { Actions(screen.actions.filter { it.name != "ref" }, look, dialogue, top) }
+    }
     }
   }
 }

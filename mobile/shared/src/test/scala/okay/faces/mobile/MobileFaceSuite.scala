@@ -113,4 +113,12 @@ class MobileDurableSuite extends munit.FunSuite {
     val dark = l match { case o: Json.Obj => o.get("dark"); case _ => None }
     assert(dark.exists(Json.print(_).contains(Theme.dark.palette.bg.hex)), Json.print(l))
   }
+
+  test("the face's own words in the phone's language, unless the look has its own") {
+    val ru = new Device.Memory(language = "ru-RU")
+    assert(MobileFace.durable[Machine.type, Unit](counting, ru)(Machine).look.contains("Назад"))
+    val own = Look.default.copy(words = Words(back = "Zurück"))
+    assert(MobileFace.durable[Machine.type, Unit](counting, ru, own)(Machine).look.contains("Zurück"))
+    assertEquals(Words.of("pl").back, "Wstecz"); assertEquals(Words.of("de").back, "Back")
+  }
 }

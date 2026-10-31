@@ -42,6 +42,9 @@ object Device {
   /** the person themselves, by the phone's own check — Face ID, a fingerprint, the passcode; `reason` said to them */
   final case class Verify[X](reason: String, answer: Boolean => X) extends Device[X]
 
+  /** the person's language, as the phone is set: a code (`en`, `ru-RU`, `pl`) */
+  final case class Language[X](answer: String => X) extends Device[X]
+
   /** a place: degrees, and how far off it may be, in metres */
   final case class Place(latitude: Double, longitude: Double, accuracy: Double)
 
@@ -79,6 +82,7 @@ object Device {
     case Share(t, u, _) => Json.Obj(Vector("op" -> Json.Str("share"), "text" -> Json.Str(t)) ++
         u.map(x => "url" -> Json.Str(x)))
     case Verify(r, _) => Json.obj("op" -> Json.Str("verify"), "reason" -> Json.Str(r))
+    case Language(_) => Json.obj("op" -> Json.Str("language"))
   }
   private def number(j: Json, k: String): Option[Double] = field(j, k).collect { case Json.Num(n) => n.toDouble }
 
@@ -105,13 +109,14 @@ object Device {
         yield Place(la, lo, number(j, "accuracy").getOrElse(0.0)))
     case Share(_, _, k) => k(flag(j, "ok"))
     case Verify(_, k) => k(flag(j, "ok"))
+    case Language(k) => k(text(j, "value").getOrElse("en"))
   }
 
   /** A DEVICE IN MEMORY, for a test or a host with no phone: what is kept and hidden in maps, the network a
    * function, the time a clock, what was notified and opened kept to look at */
   final class Memory(network: (String, String, String) => Reply = (_, u, _) => Reply(404, Map.empty, u),
     clock: () => Long = () => System.currentTimeMillis(), val photo: Option[String] = None,
-    val place: Option[Place] = None, val person: Boolean = true) extends Port {
+    val place: Option[Place] = None, val person: Boolean = true, val language: String = "en") extends Port {
     val shared = scala.collection.mutable.ListBuffer.empty[String]
     val kept = scala.collection.mutable.Map.empty[String, String]
     val hidden = scala.collection.mutable.Map.empty[String, String]
@@ -143,6 +148,7 @@ object Device {
             "longitude" -> Json.Num(BigDecimal(p.longitude)), "accuracy" -> Json.Num(BigDecimal(p.accuracy))))
         case "share" => shared += text(j, "text").getOrElse(""); Json.obj("ok" -> Json.Bool(true))
         case "verify" => Json.obj("ok" -> Json.Bool(person))
+        case "language" => Json.obj("value" -> Json.Str(language))
         case other => Json.obj("error" -> Json.Str(s"no operation $other"))
       }
     }
@@ -189,6 +195,9 @@ class DeviceWords[F <: Effects with Singleton](implicit val fx: F) {
     perform[Device].apply[R, Option[Place]](Locate[Option[Place]](p => p))
   def share[R[_]](text: String, url: Option[String] = None)(implicit in: In[Device, R]): Boolean ! R =
     perform[Device].apply[R, Boolean](Share[Boolean](text, url, b => b))
+  /** the person's language, as the phone is set */
+  def language[R[_]](implicit in: In[Device, R]): String ! R =
+    perform[Device].apply[R, String](Language[String](l => l))
   def verify[R[_]](reason: String)(implicit in: In[Device, R]): Boolean ! R =
     perform[Device].apply[R, Boolean](Verify[Boolean](reason, b => b))
 }

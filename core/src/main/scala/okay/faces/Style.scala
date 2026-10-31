@@ -199,6 +199,22 @@ final case class Words(back: String = "Back", help: String = "Help", done: Strin
 }
 object Words {
   val english: Words = Words()
+  val russian: Words = Words("Назад", "Справка", "готово", "Добавить", "Убрать", "Начать заново", "Такого сеанса нет.",
+    "[клавиша]", "< назад", "? справка", "q выход", "нажмите [клавишу]", "ошибка: одно из", "сколько",
+    "пусто — ничего", "по умолчанию", "скрыто", "ошибка", "по одному в строке", "Ещё")
+  val ukrainian: Words = Words("Назад", "Довідка", "готово", "Додати", "Прибрати", "Почати знову",
+    "Такого сеансу немає.", "[клавіша]", "< назад", "? довідка", "q вихід", "натисніть [клавішу]", "помилка: одне з",
+    "скільки", "порожньо — нічого", "за замовчуванням", "приховано", "помилка", "по одному в рядку", "Ще")
+  val polish: Words = Words("Wstecz", "Pomoc", "gotowe", "Dodaj", "Usuń", "Zacznij od nowa", "Nie ma takiej sesji.",
+    "[klawisz]", "< wstecz", "? pomoc", "q wyjście", "naciśnij [klawisz]", "błąd: jedno z", "ile", "puste — nic",
+    "domyślnie", "ukryte", "błąd", "po jednym w wierszu", "Więcej")
+  /** THE FACE'S WORDS IN A LANGUAGE, by its code (`ru`, `uk-UA`, `pl`): the ones there are, else English */
+  def of(language: String): Words = language.toLowerCase.takeWhile(c => c != '-' && c != '_') match {
+    case "ru" => russian
+    case "uk" => ukrainian
+    case "pl" => polish
+    case _ => english
+  }
 }
 
 /** THE WEB'S INTERPRETER: a look as a stylesheet. The tokens as custom properties on `:root`, so a page may override

@@ -39,7 +39,14 @@ struct Prominent: View {
     if main {
       button.buttonStyle(.borderedProminent).foregroundStyle(look.tone(r.color) ?? .white)
     } else {
-      button.buttonStyle(.bordered).foregroundStyle(tone)
+      // the lighter ones: the tone on a tenth of itself, the text a shade toward the foreground — enough contrast to
+      // read (the system's accessibility audit, 4.5 to 1)
+      Button(action: act) {
+        Text(label).font(look.font(r)).frame(maxWidth: .infinity).padding(.vertical, look.space * 0.75 + 7)
+          .background(tone.opacity(0.10), in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+          .foregroundStyle(look.mix(r.background ?? "accent", "fg", 0.3) ?? tone)
+          .contentShape(Rectangle())
+      }.buttonStyle(.plain)
     }
   }
 }

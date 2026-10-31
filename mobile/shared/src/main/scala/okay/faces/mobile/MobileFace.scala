@@ -47,7 +47,14 @@ class MobileFace[F <: Runner with Singleton](implicit val fx: F) {
   /** A PROGRAM ON A PHONE: its screens and its device — the device's operations answered by `port` (the shell's) */
   def phone[A](p: Program[A, Device.Phone], port: Device.Port, look: Look = Look.default): MobileDialogue =
     dialogueIn[A, Device.Rest](faces.steps[A, Device.Phone, Device.Rest](p.on(fx))(splitLast[Device.Rest,
-      okay.faces.Face]), onDevice(port), look)
+      okay.faces.Face]), onDevice(port), spoken(look, port))
+
+  /** THE FACE'S OWN WORDS in the phone's language — "Back", "Options", "Add" — when the look leaves them English;
+   * a look with words of its own keeps them. What the program says is the program's */
+  def spoken(look: Look, port: Device.Port): Look =
+    if (look.words != Words.english) look
+    else look.copy(words = Words.of(Device.answer(Device.Language[String](l => l),
+      port.call(Device.request(Device.Language[String](l => l))))))
 
   /**
    * A PROGRAM THAT IS TAKEN UP WHERE IT WAS (`Durable`): each point it passes kept on the phone under `key`, and the
@@ -63,7 +70,7 @@ class MobileFace[F <: Runner with Singleton](implicit val fx: F) {
       case _ => None
     }
     val program = point.flatMap(d.from).getOrElse(d.program)
-    dialogueIn[A, Pure](faces.steps[A, okay.faces.Face, Pure](faces.of(program)), atOnce, look, p => {
+    dialogueIn[A, Pure](faces.steps[A, okay.faces.Face, Pure](faces.of(program)), atOnce, spoken(look, port), p => {
       val text = Json.print(Json.obj("name" -> Json.Str(p.name), "state" -> p.state))
       port.call(Device.request(Device.Save[Unit](key, Some(text), u => u))); ()
     })

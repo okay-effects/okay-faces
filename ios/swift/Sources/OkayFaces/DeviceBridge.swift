@@ -38,6 +38,7 @@ enum DeviceBridge {
     case "locate": return Where.now()
     case "share": return ["ok": Sharing.share(str(op["text"]) ?? "", str(op["url"]))]
     case "verify": return ["ok": Person.verify(str(op["reason"]) ?? "")]
+    case "language": return ["value": Locale.preferredLanguages.first ?? "en"]
     case let other: return ["error": "no operation \(other)"]
     }
   }

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-  <application android:label="okay-faces" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+  <application android:icon="@mipmap/ic_launcher"
+      android:label="okay-faces" android:theme="@android:style/Theme.Material.Light.NoActionBar">
     <activity android:name=".MainActivity" android:exported="true"
         android:configChanges="orientation|screenSize|uiMode|fontScale|density">
       <intent-filter>

@@ -172,11 +172,21 @@ location (`simctl privacy`, `grantRuntimePermission`), pick the first photo in t
 emulator's pictures), dismiss the share sheet, and answer the system's check with a passcode — on Android a PIN the
 test sets and clears (`locksettings`).
 
+## Finish (2026-10-31)
+
+- WORDS: the face's own words (`Words`: back, options, add, …) in the phone's language — Russian, Ukrainian, Polish
+  besides English (`Words.of`), asked of the device (`Language`) — unless the look has words of its own.
+- AN ICON: "ok" on the accent's blue, in the examples' shell and the template (an asset catalog; an adaptive icon).
+- A COLUMN: at most 680 points or dp across, in the middle — an iPad, a tablet, a phone on its side.
+- ACCESSIBILITY, checked by the platforms' own audits: `performAccessibilityAudit` on the iPhone, Google's
+  Accessibility Test Framework on Android (`enableAccessibilityChecks`). What they found and is fixed: the lighter
+  buttons' text, a shade toward the foreground for 4.5 to 1 on their tint.
+
 ## Size and start (measured 2026-10-31)
 
 | | iPhone (Release, arm64) | Android (Pixel 8 emulator, Android 35) |
 |---|---|---|
-| the examples' app | 3.43 MB stripped (5.07 MB with symbols) | 1.27 MB APK with R8 (16.2 MB debug, not shrunk) |
+| the examples' app | 3.43 MB stripped (5.07 MB with symbols) | 1.27 MB APK with R8 (16.2 MB debug, not shrunk); 1.33 MB with the photo, place, share and check |
 | start | 0.79–1.06 s to launched (`XCTApplicationLaunchMetric`, simulator) | 0.17–0.30 s to the first frame (`am start -W`; 0.74–1.4 s debug) |
 
 On Android the release is shrunk by R8 with okay-faces' rules, shipped in the AAR (`consumer-rules.pro`: an app's

@@ -79,6 +79,7 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
     "locate" -> locate()
     "share" -> JSONObject().put("ok", share(op.str("text") ?: "", op.str("url")))
     "verify" -> JSONObject().put("ok", verify(op.str("reason") ?: ""))
+    "language" -> JSONObject().put("value", java.util.Locale.getDefault().toLanguageTag())
     else -> JSONObject().put("error", "no operation ${op.str("op")}")
   }
 

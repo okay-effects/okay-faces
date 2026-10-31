@@ -176,4 +176,21 @@ final class ShellUITests: XCTestCase {
     let yes = app.staticTexts["It is you."], no = app.staticTexts["Not unlocked."]
     XCTAssert(yes.waitForExistence(timeout: 10) || no.exists, "the app told what the phone said")
   }
+
+  /// THE SYSTEM'S OWN ACCESSIBILITY AUDIT of the examples' screens: contrast, descriptions, hit areas, Dynamic Type —
+  /// what VoiceOver and a person reading large would meet
+  func testAccessibility() throws {
+    for app in ["okay.faces.mobile.example.TodoApp", "okay.faces.mobile.example.NotesApp"] {
+      let a = XCUIApplication()
+      a.launchArguments = ["-app", app, "-reset", "YES"]
+      a.launch()
+      XCTAssert(a.buttons["act-add"].waitForExistence(timeout: 10))
+      try a.performAccessibilityAudit { issue in
+        print("AUDIT \(issue.compactDescription) | \(issue.detailedDescription) | " +
+          "\(issue.element.map { "\($0.elementType) '\($0.label)' \($0.identifier)" } ?? "-")")
+        return false
+      }
+      a.terminate()
+    }
+  }
 }

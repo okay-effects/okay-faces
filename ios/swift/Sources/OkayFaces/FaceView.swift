@@ -61,6 +61,8 @@ struct Page: View {
             .id(dialogue.turn).disabled(!top)
         }
         .padding(.horizontal, look.space * 2).padding(.vertical, look.space)
+        // a column a person reads, on an iPad or a phone on its side: the measure's width, in the middle
+        .frame(maxWidth: 680).frame(maxWidth: .infinity)
       }
       .scrollDismissesKeyboard(.interactively)
       // pulled down: the screen asked again — what an event brought, if anything

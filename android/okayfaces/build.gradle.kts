@@ -17,7 +17,7 @@ android {
 dependencies {
   // the screens' Scala, every phone's (okay-faces-mobile): with it okay-faces', okay-simple's and Scala's own
   api("io.github.okay-effects:okay-faces-mobile_3:${property("okayFaces")}")
-  val compose = platform("androidx.compose:compose-bom:2025.04.00")
+  val compose = platform("androidx.compose:compose-bom:2025.05.00")
   api(compose)
   api("androidx.compose.material3:material3")
   api("androidx.compose.ui:ui")

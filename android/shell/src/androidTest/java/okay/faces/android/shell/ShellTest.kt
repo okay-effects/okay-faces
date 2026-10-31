@@ -4,6 +4,8 @@ package okay.faces.android.shell
 
 import android.content.Intent
 import androidx.compose.ui.test.*
+import androidx.compose.ui.test.tryPerformAccessibilityChecks
+import androidx.compose.ui.test.junit4.accessibility.enableAccessibilityChecks
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.test.espresso.Espresso
@@ -159,5 +161,15 @@ class ShellTest {
     device.executeShellCommand("input text 1111"); device.executeShellCommand("input keyevent 66")
     waitText("It is you.", 15000)
     device.executeShellCommand("locksettings clear --old 1111")
+  }
+
+  /** THE ACCESSIBILITY CHECKS of Google's framework on the examples' screens: contrast, touch targets, labels */
+  @Test fun accessibility() {
+    rule.enableAccessibilityChecks()
+    for (app in listOf("okay.faces.mobile.example.TodoApp", "okay.faces.mobile.example.NotesApp")) {
+      launch(app, reset = true)
+      waitTag("act-add")
+      rule.onRoot().tryPerformAccessibilityChecks()
+    }
   }
 }
