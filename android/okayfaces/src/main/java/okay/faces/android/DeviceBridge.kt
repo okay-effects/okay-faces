@@ -42,8 +42,10 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
   // registered while the activity is created, as Android requires
   private val permission: ActivityResultLauncher<String> =
     activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> asked?.invoke(ok) }
-  private val picker = activity.registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { picked?.invoke(it) }
-  private val camera = activity.registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { snapped?.invoke(it) }
+  private val picker =
+    activity.registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { picked?.invoke(it) }
+  private val camera =
+    activity.registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { snapped?.invoke(it) }
 
   /** a permission, asked once of the person, waited for here */
   private fun allowed(p: String): Boolean {
@@ -80,6 +82,8 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
     "share" -> JSONObject().put("ok", share(op.str("text") ?: "", op.str("url")))
     "verify" -> JSONObject().put("ok", verify(op.str("reason") ?: ""))
     "language" -> JSONObject().put("value", java.util.Locale.getDefault().toLanguageTag())
+    "identity" -> (if (op.str("provider") == "google") google(op.str("client") ?: "") else null)
+      ?.let { JSONObject().put("value", it) } ?: JSONObject()
     else -> JSONObject().put("error", "no operation ${op.str("op")}")
   }
 
@@ -137,7 +141,8 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
       val uri = await<android.net.Uri?> { done -> picked = done
         main.post { picker.launch(androidx.activity.result.PickVisualMediaRequest(
           ActivityResultContracts.PickVisualMedia.ImageOnly)) } }
-      uri?.let { u -> context.contentResolver.openInputStream(u)?.use { android.graphics.BitmapFactory.decodeStream(it) } }
+      uri?.let { u ->
+        context.contentResolver.openInputStream(u)?.use { android.graphics.BitmapFactory.decodeStream(it) } }
     }
     val b = bitmap ?: return null
     val k = minOf(1f, size.toFloat() / maxOf(b.width, b.height))
@@ -152,12 +157,21 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
   private fun locate(): JSONObject {
     if (!allowed(Manifest.permission.ACCESS_FINE_LOCATION)) return JSONObject()
     val manager = context.getSystemService(android.location.LocationManager::class.java)
-    val provider = listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)
+    val provider = listOf(android.location.LocationManager.GPS_PROVIDER,
+      android.location.LocationManager.NETWORK_PROVIDER)
       .firstOrNull { manager.isProviderEnabled(it) } ?: return JSONObject()
+    // a fix of the last two minutes as it is; else a new one, waited for at most twenty seconds
     @Suppress("MissingPermission")
-    val place = await<android.location.Location?> { done ->
-      manager.getCurrentLocation(provider, null, context.mainExecutor) { done(it) } }
-      ?: @Suppress("MissingPermission") manager.getLastKnownLocation(provider) ?: return JSONObject()
+    val recent = manager.getLastKnownLocation(provider)
+      ?.takeIf { System.currentTimeMillis() - it.time < 120_000 }
+    val place = recent ?: run {
+      val done = CountDownLatch(1)
+      var fix: android.location.Location? = null
+      @Suppress("MissingPermission")
+      main.post { manager.getCurrentLocation(provider, null, context.mainExecutor) { fix = it; done.countDown() } }
+      done.await(20, TimeUnit.SECONDS)
+      fix
+    } ?: return JSONObject()
     return JSONObject().put("latitude", place.latitude).put("longitude", place.longitude)
       .put("accuracy", place.accuracy.toDouble())
   }
@@ -184,6 +198,27 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
         })
     }
   } ?: false
+
+  /** GOOGLE'S SIGN-IN: an account on the phone chosen, its ID token for the app's web client `client` */
+  private fun google(client: String): String? {
+    if (client.isEmpty()) return null
+    val option = com.google.android.libraries.identity.googleid.GetGoogleIdOption.Builder()
+      .setServerClientId(client).setFilterByAuthorizedAccounts(false).build()
+    val request = androidx.credentials.GetCredentialRequest.Builder().addCredentialOption(option).build()
+    return await<String?> { done ->
+      main.post {
+        androidx.credentials.CredentialManager.create(activity).getCredentialAsync(activity, request,
+          android.os.CancellationSignal(), context.mainExecutor,
+          object : androidx.credentials.CredentialManagerCallback<androidx.credentials.GetCredentialResponse,
+            androidx.credentials.exceptions.GetCredentialException> {
+            override fun onResult(r: androidx.credentials.GetCredentialResponse) = done(runCatching {
+              com.google.android.libraries.identity.googleid.GoogleIdTokenCredential.createFrom(r.credential.data)
+                .idToken }.getOrNull())
+            override fun onError(e: androidx.credentials.exceptions.GetCredentialException) = done(null)
+          })
+      }
+    }
+  }
 
   private fun open(url: String): Boolean = try {
     val i = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

@@ -11,6 +11,9 @@ struct ShellApp: App {
       for k in UserDefaults.standard.dictionaryRepresentation().keys where k.hasPrefix("okay-faces.") {
         UserDefaults.standard.removeObject(forKey: k)
       }
+      // and the secrets — a session among them
+      SecItemDelete([kSecClass as String: kSecClassGenericPassword,
+                     kSecAttrService as String: "okay-faces"] as CFDictionary)
     }
   }
   var body: some Scene {

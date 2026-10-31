@@ -193,4 +193,34 @@ final class ShellUITests: XCTestCase {
       a.terminate()
     }
   }
+
+  /// SHARED ACROSS PHONES: signed in to a local backend (okay-serverless' accounts on `wrangler dev`, ACCOUNTS_TEST —
+  /// its code on the screen), a note added; Android's test signs in as the same person and finds it
+  func testSync() {
+    let app = XCUIApplication()
+    app.launchArguments = ["-app", "okay.faces.mobile.example.NotesApp", "-reset", "YES",
+      "-okay-faces.cloud", "http://127.0.0.1:8790"]
+    app.launch()
+    XCTAssert(app.buttons["act-sync"].waitForExistence(timeout: 10))
+    app.buttons["act-sync"].tap()
+    let email = app.textFields["field-email"]
+    XCTAssert(email.waitForExistence(timeout: 10))
+    email.tap(); email.typeText("phones@example.org")
+    app.buttons["act-email"].tap()
+    let told = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'A test server'")).firstMatch
+    XCTAssert(told.waitForExistence(timeout: 15), "the code on the screen")
+    shot(app, "sync-1-code")
+    let code = String(told.label.suffix(6))
+    let field = app.textFields["field-code"]
+    field.tap(); field.typeText(code)
+    app.buttons["act-code"].tap()
+    XCTAssert(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH '0 shared' OR label CONTAINS 'shared as'"))
+      .firstMatch.waitForExistence(timeout: 15), "signed in")
+    let text = app.textFields["field-text"]
+    text.tap(); text.typeText("From the iPhone")
+    app.buttons["act-add"].tap()
+    XCTAssert(app.buttons.matching(NSPredicate(format: "label == 'From the iPhone'")).firstMatch
+      .waitForExistence(timeout: 10))
+    shot(app, "sync-2-shared")
+  }
 }

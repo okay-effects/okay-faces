@@ -23,6 +23,10 @@ dependencies {
   api("androidx.compose.ui:ui")
   api("androidx.activity:activity-compose:1.10.1")
   implementation("androidx.compose.material:material-icons-core")
+  // Google's sign-in (the Credential Manager), for `Device.Identity("google", client)`
+  implementation("androidx.credentials:credentials:1.5.0")
+  implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
+  implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
 }
 
 /** THE FACE AS A RELEASE: io.github.okay-effects:okay-faces-android, an AAR with its POM, written into build/repo —
@@ -36,7 +40,8 @@ publishing {
       afterEvaluate { from(components["release"]) }
       pom {
         name.set("okay-faces-android")
-        description.set("okay-faces on Android: an application's Scala drawn by Jetpack Compose, its phone answered by Android")
+        description.set(
+          "okay-faces on Android: an application's Scala drawn by Jetpack Compose, its phone answered by Android")
         url.set("https://github.com/okay-effects/okay-faces")
         licenses { license { name.set("Apache-2.0"); url.set("https://www.apache.org/licenses/LICENSE-2.0.txt") } }
       }

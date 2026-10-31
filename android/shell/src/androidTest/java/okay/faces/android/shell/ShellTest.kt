@@ -126,7 +126,7 @@ class ShellTest {
     waitText("Nothing kept yet.")
   }
 
-  /** the phone's other powers: where it is (the emulator's place, set from outside), a photo picked onto a note, the
+  /** the phone's other powers: where it is (the emulator's own place), a photo picked onto a note, the
    * note shared, the person checked by the screen lock's PIN the test sets */
   @Test fun notesPowers() {
     val pkg = instrumentation.targetContext.packageName
@@ -135,7 +135,8 @@ class ShellTest {
     launch("okay.faces.mobile.example.NotesApp", reset = true)
     waitText("Nothing kept yet.")
     tap("act-here")
-    waitText("At 51.1079, 17.0385", 30000)
+    // a note of where the emulator is — its own place (`adb emu geo fix` moves it), whatever it is
+    waitText("At ", 30000)
 
     rule.onNodeWithTag("ref-1").performClick()
     waitTag("act-photo"); tap("act-photo")
@@ -171,5 +172,23 @@ class ShellTest {
       waitTag("act-add")
       rule.onRoot().tryPerformAccessibilityChecks()
     }
+  }
+
+  /** SHARED ACROSS PHONES: signed in to the same local backend as the iPhone's test (this Mac's, 10.0.2.2), as the
+   * same person — the iPhone's note is here */
+  @Test fun syncFromTheIphone() {
+    scenario?.close()
+    val i = Intent(instrumentation.targetContext, MainActivity::class.java)
+      .putExtra("app", "okay.faces.mobile.example.NotesApp").putExtra("reset", true)
+      .putExtra("cloud", "http://10.0.2.2:8790")
+    scenario = ActivityScenario.launch(i)
+    waitTag("act-sync"); tap("act-sync")
+    waitTag("field-email"); type("field-email", "phones@example.org"); tap("act-email")
+    waitText("A test server's code", 15000)
+    val told = rule.onAllNodesWithText("A test server's code", substring = true).fetchSemanticsNodes().first()
+    val code = told.config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString("").takeLast(6)
+    type("field-code", code); tap("act-code")
+    waitText("From the iPhone", 15000)
+    shot("sync-3-android")
   }
 }

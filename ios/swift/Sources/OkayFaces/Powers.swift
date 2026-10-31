@@ -7,6 +7,7 @@ import UIKit
 import PhotosUI
 import CoreLocation
 import LocalAuthentication
+import AuthenticationServices
 
 /// the screen on top, to present over
 @MainActor func topmost() -> UIViewController? {
@@ -34,12 +35,14 @@ enum Photos {
         if from == "camera" && UIImagePickerController.isSourceTypeAvailable(.camera) {
           let picker = UIImagePickerController()
           picker.sourceType = .camera
-          let d = CameraDelegate(done); picker.delegate = d; objc_setAssociatedObject(picker, &key, d, .OBJC_ASSOCIATION_RETAIN)
+          let d = CameraDelegate(done); picker.delegate = d
+          objc_setAssociatedObject(picker, &key, d, .OBJC_ASSOCIATION_RETAIN)
           top.present(picker, animated: true)
         } else {
           var config = PHPickerConfiguration(); config.filter = .images; config.selectionLimit = 1
           let picker = PHPickerViewController(configuration: config)
-          let d = PickerDelegate(done); picker.delegate = d; objc_setAssociatedObject(picker, &key, d, .OBJC_ASSOCIATION_RETAIN)
+          let d = PickerDelegate(done); picker.delegate = d
+          objc_setAssociatedObject(picker, &key, d, .OBJC_ASSOCIATION_RETAIN)
           top.present(picker, animated: true)
         }
       }
@@ -127,8 +130,40 @@ enum Person {
     guard context.canEvaluatePolicy(.deviceOwnerAuthentication, error: &error) else { return false }
     let done = DispatchSemaphore(value: 0)
     var ok = false
-    context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in ok = success; done.signal() }
+    context.evaluatePolicy(.deviceOwnerAuthentication, localizedReason: reason) { success, _ in
+      ok = success; done.signal()
+    }
     done.wait()
     return ok
+  }
+}
+
+/// SIGN IN WITH APPLE: the system's sheet; the identity token Apple signed, for the backend to check. The app needs
+/// the capability (com.apple.developer.applesignin) of a paid team; without it, none
+final class AppleID: NSObject, ASAuthorizationControllerDelegate,
+  ASAuthorizationControllerPresentationContextProviding {
+  private var done: ((String?) -> Void)?
+  static func token() -> String? {
+    onMain(nil) { done in
+      MainActor.assumeIsolated {
+        let me = AppleID(); me.done = { done($0); _ = me }
+        let request = ASAuthorizationAppleIDProvider().createRequest()
+        request.requestedScopes = [.email]
+        let c = ASAuthorizationController(authorizationRequests: [request])
+        c.delegate = me; c.presentationContextProvider = me
+        c.performRequests()
+      }
+    }
+  }
+  func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
+    MainActor.assumeIsolated { topmost()?.view.window ?? ASPresentationAnchor() }
+  }
+  func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization a: ASAuthorization) {
+    let t = (a.credential as? ASAuthorizationAppleIDCredential)?.identityToken
+      .flatMap { String(data: $0, encoding: .utf8) }
+    done?(t); done = nil
+  }
+  func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+    done?(nil); done = nil
   }
 }

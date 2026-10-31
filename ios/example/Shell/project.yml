@@ -13,6 +13,12 @@ targets:
     type: application
     platform: iOS
     sources: [Shell]
+    # the Info.plist generated, and beside it: plain HTTP to this Mac's own servers (a local backend in a test)
+    info:
+      path: Shell/Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
     dependencies:
       - package: OkayFaces
       - framework: lib/OkayExample.xcframework
@@ -30,6 +36,9 @@ targets:
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         OTHER_LDFLAGS: [-lc++]
+        # signed to run here (ad hoc): the keychain answers a signed app only — a session is kept there
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
         # the library is arm64's: an Apple silicon simulator, a device
         "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
         ENABLE_USER_SCRIPT_SANDBOXING: NO

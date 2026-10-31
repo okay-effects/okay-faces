@@ -72,7 +72,8 @@ fun FormView(action: ActionSpec, look: LookSpec, dialogue: Dialogue, enabled: Bo
       action.fields.filter { !it.more }.forEach { Control(it, null, look, values, counts) }
       val held = action.fields.filter { it.more }
       if (held.isNotEmpty()) {
-        TextButton(onClick = { open = !open }) { Text(look.word("options", "Options") + if (open) " ▴" else " ▾") }
+        TextButton(onClick = { open = !open }, modifier = Modifier.heightIn(min = 48.dp)) {
+          Text(look.word("options", "Options") + if (open) " ▴" else " ▾") }
         if (open) held.forEach { Control(it, null, look, values, counts) }
       }
       Main(action.label, look, true, enabled, Modifier.testTag("act-${action.name}")) {
@@ -127,9 +128,11 @@ private fun Control(f: Field, prefix: Pair<String, Int>?, look: LookSpec, values
         (0 until n).forEach { i -> Column(Modifier.padding(start = look.space.dp)) {
           f.item.forEach { Control(it, name to i, look, values, counts) } } }
         Row {
-          if (f.max?.let { n < it } != false) TextButton({ counts[name] = n + 1 }) {
+          if (f.max?.let { n < it } != false)
+            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { counts[name] = n + 1 }) {
             Text(look.word("add", "Add"), color = accent) }
-          if (n > f.min && n > 0) TextButton({ counts[name] = n - 1
+          if (n > f.min && n > 0) TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = {
+            counts[name] = n - 1
             values.keys.filter { it.startsWith("$name.${n - 1}.") }.forEach { values.remove(it) } }) {
             Text(look.word("remove", "Remove"), color = accent) }
         }
@@ -138,7 +141,8 @@ private fun Control(f: Field, prefix: Pair<String, Int>?, look: LookSpec, values
         label(f.label)
         var expanded by remember { mutableStateOf(false) }
         Box {
-          TextButton({ expanded = true }) { Text(text().ifEmpty { look.word("optional", "—") }, color = accent) }
+          TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { expanded = true }) {
+            Text(text().ifEmpty { look.word("optional", "—") }, color = accent) }
           DropdownMenu(expanded, { expanded = false }) {
             if (!f.required) DropdownMenuItem({ Text(look.word("optional", "—")) }, { set(""); expanded = false })
             f.options.forEach { o -> DropdownMenuItem({ Text(o) }, { set(o); expanded = false }) }
@@ -149,13 +153,14 @@ private fun Control(f: Field, prefix: Pair<String, Int>?, look: LookSpec, values
         label(f.label)
         val context = LocalContext.current
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-          TextButton(modifier = Modifier.testTag("add-$name"), onClick = {
+          TextButton(modifier = Modifier.heightIn(min = 48.dp).testTag("add-$name"), onClick = {
             val d = text().let { runCatching { LocalDate.parse(it) }.getOrNull() } ?: LocalDate.now()
             if (!f.required && text().isEmpty()) set(LocalDate.now().toString())
             else DatePickerDialog(context, { _, y, m, day -> set(LocalDate.of(y, m + 1, day).toString()) },
               d.year, d.monthValue - 1, d.dayOfMonth).show()
           }) { Text(text().ifEmpty { look.word("add", "Add") }, color = accent) }
-          if (!f.required && text().isNotEmpty()) TextButton({ set("") }) {
+          if (!f.required && text().isNotEmpty())
+            TextButton(modifier = Modifier.heightIn(min = 48.dp), onClick = { set("") }) {
             Text(look.word("remove", "Remove"), color = accent) }
         }
       }

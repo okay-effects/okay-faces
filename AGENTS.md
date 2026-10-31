@@ -25,7 +25,9 @@ design is a change of the spec first.
   answered in place by a port (Swift's `DeviceBridge` on an iPhone, `Device.Memory` in tests); the library is called
   on its own thread (`ScalaThread`), never the main one. On Android the program is Scala on ART (no Native), the
   shell Kotlin + Compose (`android/okayfaces`), checked by `android/test.sh` on an emulator; a change to the screen's
-  JSON is a change to `Model.kt` too.
+  JSON is a change to `Model.kt` too. Shared across phones: `okay.faces.mobile.Accounts` over okay-serverless'
+  `accounts` (a local `wrangler dev` with ACCOUNTS_TEST for the sync tests); the simulator's app signed ad hoc, as the
+  keychain needs.
 - The DOM faces (`web/dom`: `DomFace`, `DomRemoteFace`) keep the Laminar faces' markup exactly: a change to the
   Laminar faces' markup is a change to theirs too (`Drawing`) — `SameMarkupSuite`, `SameRemoteMarkupSuite` fail
   otherwise. Inside, the world is effects (`Page`, `History`, `Focus`, `Keys`, `Server`, `Timer`, `World.scala`)

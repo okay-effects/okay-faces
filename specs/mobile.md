@@ -182,6 +182,24 @@ test sets and clears (`locksettings`).
   Accessibility Test Framework on Android (`enableAccessibilityChecks`). What they found and is fixed: the lighter
   buttons' text, a shade toward the foreground for 4.5 to 1 on their tint.
 
+## Shared across phones (2026-10-31)
+
+Asked: «Синхронизировать то что помечено как общее. вход через Apple или Google или код по почте.» The backend is
+okay-serverless' `accounts` (its specs/accounts.md): sign-in into a session, the person's shared values in their own
+object. The phone's side is `okay.faces.mobile.Accounts`, words over `Device` and `Face` and nothing more:
+
+- `Accounts.signIn(backend)`: a component — Sign in with Apple (`Device.Identity("apple")`, the app's capability
+  needed), with Google (`Identity("google", client)`, the Credential Manager, the app's web client id needed), or a
+  code by mail; a test backend (`ACCOUNTS_TEST`) shows its code on the screen. The session is a secret (`hide`).
+- `getShared(backend, key)`, `putShared(backend, key, value)`: what the program MARKS shared — on the phone always,
+  in the cloud when signed in (the cloud's answer kept on the phone; the phone's copy when offline; the last write
+  wins). Nothing else the program keeps leaves the phone.
+- `Notes` shares its notes once signed in ("Sync across my phones"), its backend the phone's setting `cloud`.
+
+Checked across platforms: the iPhone's `testSync` signs in to `wrangler dev` (this Mac's 127.0.0.1:8790) and adds a
+note; Android's `syncFromTheIphone` signs in as the same person (10.0.2.2:8790) and finds it. The simulator's app is
+signed to run here (ad hoc): an unsigned app's keychain refuses, and a session lives there.
+
 ## Size and start (measured 2026-10-31)
 
 | | iPhone (Release, arm64) | Android (Pixel 8 emulator, Android 35) |

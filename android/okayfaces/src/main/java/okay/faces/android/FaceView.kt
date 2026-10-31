@@ -168,7 +168,8 @@ fun View(node: Node, look: LookSpec, dialogue: Dialogue, refs: Boolean) {
     }
     is Node.Ref -> Dressed(look, "ref") {
       val centered = LocalInherited.current.centered
-      Box(Modifier.fillMaxSize().testTag("ref-${node.key}").let { m ->
+      // a place to tap at least 48 high, as Android's accessibility asks
+      Box(Modifier.fillMaxSize().heightIn(min = 48.dp).testTag("ref-${node.key}").let { m ->
         if (refs) m.clickable { haptic.performHapticFeedback(HapticFeedbackType.LongPress)
           dialogue.act("ref", mapOf("key" to listOf(node.key))) } else m },
         contentAlignment = if (centered) Alignment.Center else Alignment.CenterStart) { Text(node.label) }

@@ -15,6 +15,11 @@ class MainActivity : ComponentActivity() {
     super.onCreate(saved)
     if (intent.getBooleanExtra("reset", false)) {
       getSharedPreferences("okay-faces", Context.MODE_PRIVATE).edit().clear().commit()
+      getSharedPreferences("okay-faces-secrets", Context.MODE_PRIVATE).edit().clear().commit()
+    }
+    // where the notes are shared: a backend given by the intent (`cloud`), kept as the phone's setting
+    intent.getStringExtra("cloud")?.let {
+      getSharedPreferences("okay-faces", Context.MODE_PRIVATE).edit().putString("okay-faces.cloud", it).commit()
     }
     DeviceBridge.install(this)
     enableEdgeToEdge()

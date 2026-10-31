@@ -42,6 +42,10 @@ object Device {
   /** the person themselves, by the phone's own check — Face ID, a fingerprint, the passcode; `reason` said to them */
   final case class Verify[X](reason: String, answer: Boolean => X) extends Device[X]
 
+  /** WHO THE PERSON IS, by the phone's own sign-in — `apple` (Sign in with Apple) or `google` (Google's account on the
+   * phone, for the app's web client `client`): the identity token the issuer signed, for a backend to check; none
+   * when the person did not, or the phone cannot */
+  final case class Identity[X](provider: String, client: String, answer: Option[String] => X) extends Device[X]
   /** the person's language, as the phone is set: a code (`en`, `ru-RU`, `pl`) */
   final case class Language[X](answer: String => X) extends Device[X]
 
@@ -83,6 +87,7 @@ object Device {
         u.map(x => "url" -> Json.Str(x)))
     case Verify(r, _) => Json.obj("op" -> Json.Str("verify"), "reason" -> Json.Str(r))
     case Language(_) => Json.obj("op" -> Json.Str("language"))
+    case Identity(p, c, _) => Json.obj("op" -> Json.Str("identity"), "provider" -> Json.Str(p), "client" -> Json.Str(c))
   }
   private def number(j: Json, k: String): Option[Double] = field(j, k).collect { case Json.Num(n) => n.toDouble }
 
@@ -110,14 +115,18 @@ object Device {
     case Share(_, _, k) => k(flag(j, "ok"))
     case Verify(_, k) => k(flag(j, "ok"))
     case Language(k) => k(text(j, "value").getOrElse("en"))
+    case Identity(_, _, k) => k(text(j, "value"))
   }
 
   /** A DEVICE IN MEMORY, for a test or a host with no phone: what is kept and hidden in maps, the network a
    * function, the time a clock, what was notified and opened kept to look at */
   final class Memory(network: (String, String, String) => Reply = (_, u, _) => Reply(404, Map.empty, u),
     clock: () => Long = () => System.currentTimeMillis(), val photo: Option[String] = None,
-    val place: Option[Place] = None, val person: Boolean = true, val language: String = "en") extends Port {
+    val place: Option[Place] = None, val person: Boolean = true, val language: String = "en",
+    val identity: Map[String, String] = Map.empty) extends Port {
     val shared = scala.collection.mutable.ListBuffer.empty[String]
+    /** the headers of the request the network is asked now — for a network that sends them on */
+    @volatile var asking: List[(String, String)] = Nil
     val kept = scala.collection.mutable.Map.empty[String, String]
     val hidden = scala.collection.mutable.Map.empty[String, String]
     val notified = scala.collection.mutable.ListBuffer.empty[(String, String)]
@@ -131,6 +140,8 @@ object Device {
     def call(j: Json): Json = synchronized {
       text(j, "op").getOrElse("") match {
         case "fetch" =>
+          asking = j match { case o: Json.Obj => o.get("headers").collect { case h: Json.Obj =>
+            h.fields.toList.collect { case (k, Json.Str(v)) => k -> v } }.getOrElse(Nil); case _ => Nil }
           val r = network(text(j, "method").getOrElse("GET"), text(j, "url").getOrElse(""),
             text(j, "body").getOrElse(""))
           Json.obj("status" -> Json.num(r.status), "headers" -> Json.Obj(r.headers.toVector.map { case (k, v) =>
@@ -149,6 +160,8 @@ object Device {
         case "share" => shared += text(j, "text").getOrElse(""); Json.obj("ok" -> Json.Bool(true))
         case "verify" => Json.obj("ok" -> Json.Bool(person))
         case "language" => Json.obj("value" -> Json.Str(language))
+        case "identity" => identity.get(text(j, "provider").getOrElse(""))
+            .fold[Json](Json.Obj.empty)(t => Json.obj("value" -> Json.Str(t)))
         case other => Json.obj("error" -> Json.Str(s"no operation $other"))
       }
     }
@@ -195,6 +208,9 @@ class DeviceWords[F <: Effects with Singleton](implicit val fx: F) {
     perform[Device].apply[R, Option[Place]](Locate[Option[Place]](p => p))
   def share[R[_]](text: String, url: Option[String] = None)(implicit in: In[Device, R]): Boolean ! R =
     perform[Device].apply[R, Boolean](Share[Boolean](text, url, b => b))
+  /** the identity token of the phone's sign-in with `provider` (`apple`, `google`) */
+  def identityToken[R[_]](provider: String, client: String = "")(implicit in: In[Device, R]): Option[String] ! R =
+    perform[Device].apply[R, Option[String]](Identity[Option[String]](provider, client, t => t))
   /** the person's language, as the phone is set */
   def language[R[_]](implicit in: In[Device, R]): String ! R =
     perform[Device].apply[R, String](Language[String](l => l))
