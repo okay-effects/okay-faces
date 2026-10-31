@@ -68,11 +68,11 @@
         {
           "name": "okay-faces-android-0.1.0.aar",
           "url": "okay-faces-android-0.1.0.aar",
-          "size": 252411,
-          "sha512": "1d79ab00cc855bc29619c1a1ac04a07749e2e15aac4726db5f8bba3c5e9083507debe4a4a34fb6bbceb423cb8bf1f5389141280350100610e9502df5a6340b5a",
-          "sha256": "2a24b0a1956d9b45480984ef31a8ef475500dd13a679ac475262ea5aa8605a77",
-          "sha1": "189dc9bcd0add03f82ea929643ea4d7d6b5253cf",
-          "md5": "a3268c82c8c0d8da3c0dbf090c8a8002"
+          "size": 254647,
+          "sha512": "a07f384eddcd63fb59ce7b1571faefea045648ee900d4038826340814e0c3ed1714bcfaa95dae6c88d2778be9a641210b7610c703e9983af343849b50b239e7b",
+          "sha256": "b9aa1f915e5be26c4a07dee10239410c74c8ac35668562105b1a4cde22b9d90e",
+          "sha1": "f2f063ab19105c9324f53f5c981300d0a64f2887",
+          "md5": "4989cf85779ea1b743f45ecc8deef99b"
         }
       ]
     },
@@ -108,6 +108,13 @@
           "module": "googleid",
           "version": {
             "requires": "1.1.1"
+          }
+        },
+        {
+          "group": "com.google.firebase",
+          "module": "firebase-messaging",
+          "version": {
+            "requires": "24.1.1"
           }
         },
         {
@@ -155,11 +162,11 @@
         {
           "name": "okay-faces-android-0.1.0.aar",
           "url": "okay-faces-android-0.1.0.aar",
-          "size": 252411,
-          "sha512": "1d79ab00cc855bc29619c1a1ac04a07749e2e15aac4726db5f8bba3c5e9083507debe4a4a34fb6bbceb423cb8bf1f5389141280350100610e9502df5a6340b5a",
-          "sha256": "2a24b0a1956d9b45480984ef31a8ef475500dd13a679ac475262ea5aa8605a77",
-          "sha1": "189dc9bcd0add03f82ea929643ea4d7d6b5253cf",
-          "md5": "a3268c82c8c0d8da3c0dbf090c8a8002"
+          "size": 254647,
+          "sha512": "a07f384eddcd63fb59ce7b1571faefea045648ee900d4038826340814e0c3ed1714bcfaa95dae6c88d2778be9a641210b7610c703e9983af343849b50b239e7b",
+          "sha256": "b9aa1f915e5be26c4a07dee10239410c74c8ac35668562105b1a4cde22b9d90e",
+          "sha1": "f2f063ab19105c9324f53f5c981300d0a64f2887",
+          "md5": "4989cf85779ea1b743f45ecc8deef99b"
         }
       ]
     },
@@ -175,11 +182,11 @@
         {
           "name": "okay-faces-android-0.1.0-sources.jar",
           "url": "okay-faces-android-0.1.0-sources.jar",
-          "size": 18722,
-          "sha512": "c74070994c37d13ef2ce35b640ac25de27acc28d38d33fc6d8fd1d0d05f39b1bac29113ac92156b43d083348095a2369557ce77288c4f997203515e5a8bcd1f6",
-          "sha256": "14d4fc838264685e91459d654be4cbfd1dab2a1fa4a927df3a3ca26f573f79de",
-          "sha1": "4aed8cc2d38d6b9d1c2b11930ba120ffbbdee714",
-          "md5": "70655bc287891ac66cb1024e5092941b"
+          "size": 19646,
+          "sha512": "c60429d1dffc41bb8f9dcb6e96f6595b0975c8511455cd980cd0f9ea65bae4825bf2e12b76517675617b660cdf1837c58197778b0c22ab046dbe2f3f192d8d4a",
+          "sha256": "5436e5b9b8924eff1cf3213f4b78f273fa2de6c6e00b80236f9fe7e3f7c76b76",
+          "sha1": "f5f06c21b0a8d1569ab0015f12aeed82a316035c",
+          "md5": "53eca77a7df6c86ed4a1a0bcc90f5b26"
         }
       ]
     }
