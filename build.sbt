@@ -13,7 +13,7 @@ ThisBuild / developers := List(Developer("sergey-scherbina", "Sergiy Shcherbyna"
     url("https://github.com/sergey-scherbina")))
 ThisBuild / startYear := Some(2026)
 ThisBuild / versionScheme := Some("early-semver")
-ThisBuild / version := "0.1.0"
+ThisBuild / version := "0.1.1-SNAPSHOT"
 ThisBuild / licenses := List("Apache-2.0" -> url("https://www.apache.org/licenses/LICENSE-2.0.txt"))
 ThisBuild / scalaVersion := scala3
 /** RELEASES, ON GITHUB PAGES: `sbt -Dplatforms=jvm,js publishPages` writes every published module, for both
