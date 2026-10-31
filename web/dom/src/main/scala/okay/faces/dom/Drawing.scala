@@ -314,6 +314,7 @@ trait Drawing[F <: Runner with Singleton] {
       else el("a", cls(Role.Link.classes), "href" -> url)(List(txt(label)))
     case View.Datum(json, _) => el("pre", cls(Role.Datum.classes))(List(txt(Json.pretty(json))))
     case View.Masked(hint) => el("span", cls(Role.Masked.classes))(List(txt(hint)))
+    case View.Image(source, alt) => el("img", cls(Role.Image.classes), "src" -> source, "alt" -> alt)(Nil)
     // A PICTURE THE PROGRAM DESCRIBES: an <svg> of its shapes, the Laminar face's markup
     case p: View.Picture =>
       import View.Picture.{Band, Box, Label, cls => mark, n}

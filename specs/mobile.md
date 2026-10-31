@@ -81,8 +81,13 @@ action with the ref's key.
 
 What a program asks of the phone is an effect, `Device`, its operations data with their answers: `Fetch` (the
 network; a failure is status 0 and the reason), `Load`/`Save` (UserDefaults), `Secret`/`Hide` (the keychain), `Now`,
-`Notify` (a notification, at once or after seconds; whether the person allows them), `Open` (a link, by the system).
-The words are `okay.faces.mobile.phone` (`fetch`, `load`, `save`, `forget`, `secret`, `hide`, `now`, `remind`, `open`);
+`Notify` (a notification, at once or after seconds; whether the person allows them), `Open` (a link, by the system). And
+(2026-10-31) `Photo` (taken with the camera or picked from the person's photos, a JPEG at most so many pixels across,
+as a data: URI `View.Image` shows), `Locate` (a `Place`: degrees and accuracy, the permission asked once), `Share`
+(the system's sheet), `Verify` (the person themselves: Face ID, a fingerprint, the passcode or PIN — the system's
+prompt, never the app's).
+The words are `okay.faces.mobile.phone` (`fetch`, `load`, `save`, `forget`, `secret`, `hide`, `now`, `remind`, `open`,
+`takePhoto`, `pickPhoto`, `locate`, `share`, `verify`);
 a program on a phone is `A ! Device.Phone` — `Row[*[Pure] + *[Device] + *[Face], X]` in Scala 3 — and
 `MobileFace.phone(program, device)` its dialogue.
 
@@ -158,6 +163,14 @@ lowering and the device are one code; only the drawing differs.
   notes kept, GitHub's API fetched, the reminder in the system's shade; a note's page and back.
 - `android/build.sh` puts the examples' runtime classpath into `android/libs`; `android/test.sh` builds, runs the
   tests on the device adb sees and pulls the screens (`/sdcard/Download/okay-faces`).
+
+## Checked on both phones (2026-10-31)
+
+`Notes` uses every power: a note of where the phone is, a photo picked onto a note's page, the note shared, "Unlock"
+by the system's check. The UI tests set the place from outside (`simctl location`, `adb emu geo fix`), grant the
+location (`simctl privacy`, `grantRuntimePermission`), pick the first photo in the system's picker (one pushed to the
+emulator's pictures), dismiss the share sheet, and answer the system's check with a passcode — on Android a PIN the
+test sets and clears (`locksettings`).
 
 ## Size and start (measured 2026-10-31)
 

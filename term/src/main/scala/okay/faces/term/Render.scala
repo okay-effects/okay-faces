@@ -41,6 +41,7 @@ object Render {
     case View.Link(label, url) => List(paint(Role.Link, s"$label <$url>"))
     case View.Datum(json, _) => Json.pretty(json).split("\n").toList
     case View.Masked(hint) => List(paint(Role.Masked, hint))
+    case View.Image(_, alt) => List(paint(Role.Image, s"[image: $alt]"))
     // A PICTURE IN WORDS: the terminal draws no pictures
     case View.Picture(_, _, _, text) => text.split("\n").toList.map(paint(Role.Picture, _))
     case View.Marked(mark, x) => view(x, paint).map(paint(Role.Mark(mark), _))
@@ -61,6 +62,7 @@ object Render {
     case View.Link(label, url) => paint(Role.Link, s"$label <$url>")
     case View.Datum(json, _) => Json.print(json)
     case View.Masked(hint) => paint(Role.Masked, hint)
+    case View.Image(_, alt) => paint(Role.Image, s"[image: $alt]")
     case View.Picture(_, _, _, text) => paint(Role.Picture, text)
     case View.Marked(mark, x) => paint(Role.Mark(mark), oneLine(x, paint))
   }

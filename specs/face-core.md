@@ -215,9 +215,15 @@ object View {
   final case class Link(label: String, url: String) extends View             // a page elsewhere: where to check
   final case class Datum(v: Value, schema: Option[Schema]) extends View      // a structured value shown as it is
   final case class Masked(hint: String) extends View                         // a secret NOT shown ("•••• 4821")
+  final case class Image(source: String, alt: String) extends View          // an image by its address or data: URI
   final case class Picture(width: Int, height: Int, shapes: Vector[Picture.Shape], text: String) extends View
 }
 ```
+
+`Image(source, alt)` — ADDED 2026-10-31 (a photo a phone took): an image by its source, an address (`https://…`) or the
+image itself (`data:image/jpeg;base64,…`), with its words. The web faces draw `<img class="okay-image">` (the Laminar
+and DOM faces' markup alike), Swing an icon read from the source, SwiftUI and Compose the image, the terminal and an
+agent `alt` (an agent the address too, never a data: URI's bytes).
 
 `Picture(width, height, shapes, text)` — ADDED 2026-10-25 (Coinpath's flow diagram): a picture the program DESCRIBES,
 as data — boxes, bands and labels on a `width` × `height` canvas — never markup and never a script, so it has equality,

@@ -135,4 +135,45 @@ final class ShellUITests: XCTestCase {
       app.launch()
     }
   }
+
+  /// the phone's other powers: where it is (the simulator's place, set from outside: `simctl location`, the permission
+  /// by `simctl privacy`), a photo picked onto a note, the note shared, the person checked by the system's passcode
+  func testPowers() {
+    let app = XCUIApplication()
+    app.launchArguments = ["-app", "okay.faces.mobile.example.NotesApp", "-reset", "YES"]
+    app.launch()
+    XCTAssert(app.buttons["act-here"].waitForExistence(timeout: 10))
+    app.buttons["act-here"].tap()
+    XCTAssert(app.buttons["ref-1"].waitForExistence(timeout: 15), "a note of where the phone is")
+    XCTAssert(app.buttons["ref-1"].label.hasPrefix("At 51.10"), app.buttons["ref-1"].label)
+
+    app.buttons["ref-1"].tap()
+    XCTAssert(app.buttons["act-photo"].waitForExistence(timeout: 5))
+    app.buttons["act-photo"].tap()
+    let photo = app.images.matching(NSPredicate(format: "identifier != 'image'")).element(boundBy: 0)
+    XCTAssert(photo.waitForExistence(timeout: 15), "the picker's photos")
+    photo.tap()
+    XCTAssert(app.images["image"].waitForExistence(timeout: 15), "the photo on the note's page")
+    shot(app, "notes-5-photo")
+
+    app.buttons["act-share-note"].tap()
+    let close = app.buttons["Close"]
+    XCTAssert(close.waitForExistence(timeout: 10), "the share sheet")
+    shot(app, "notes-6-share")
+    close.tap()
+    XCTAssert(app.buttons["act-delete"].waitForExistence(timeout: 10))
+
+    let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+    edge.press(forDuration: 0.1, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.9, dy: 0.5)))
+    XCTAssert(app.buttons["act-unlock"].waitForExistence(timeout: 5))
+    app.buttons["act-unlock"].tap()
+    // the phone's own check: here the passcode, asked by the system, not the app — typed into its field
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    let code = springboard.secureTextFields.firstMatch
+    XCTAssert(code.waitForExistence(timeout: 10), "the system asks for the passcode")
+    shot(app, "notes-7-unlock")
+    code.typeText("1234\n")
+    let yes = app.staticTexts["It is you."], no = app.staticTexts["Not unlocked."]
+    XCTAssert(yes.waitForExistence(timeout: 10) || no.exists, "the app told what the phone said")
+  }
 }

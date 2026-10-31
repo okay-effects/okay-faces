@@ -40,6 +40,8 @@ object Role {
   case object Link extends Role(List("link"))
   case object Datum extends Role(List("datum"))
   case object Masked extends Role(List("masked"))
+  /** an image: `View.Image` */
+  case object Image extends Role(List("image"))
   /** the problems with a rejected choice */
   case object Problems extends Role(List("problems"))
   /** the actions offered, together */
@@ -62,7 +64,7 @@ object Role {
 
   val all: List[Role] = List(Face, View, Told, Text) ++ (1 to 3).map(Heading(_)) ++
     List(okay.faces.View.Notice.Info, okay.faces.View.Notice.Warning, okay.faces.View.Notice.Problem).map(Notice(_)) ++
-    List(Fields, Label, Table, Items, Group, GroupTitle, Ref, Link, Datum, Masked, Problems, Actions, Action, Form, Doc,
+    List(Fields, Label, Table, Items, Group, GroupTitle, Ref, Link, Datum, Masked, Image, Problems, Actions, Action, Form, Doc,
       Field, Back, More, Picture)
   /** a role by its most specific class, "okay-heading-1"; a mark by its name, "okay-mark-price" */
   val byClass: Map[String, Role] = all.map(r => r.cls -> r).toMap
@@ -236,6 +238,7 @@ object Css {
       ".okay-field{align-items:flex-start}" +
       ".okay-action{border:0;font:inherit;cursor:pointer}.okay-back{border:0;font:inherit;cursor:pointer}" +
       ".okay-more>summary{cursor:pointer}" +
+      ".okay-image{display:block;max-width:100%;height:auto;border-radius:6px}" +
       ".okay-picture{display:block;width:100%;height:auto}.okay-picture-shape{fill:currentColor}" +
       ".okay-picture-band{fill-opacity:.55}.okay-picture-label{fill:var(--okay-fg);font-size:12px}" +
       // a QR code: the look's darker tone on its lighter one, whatever the scheme — a camera reads dark on light

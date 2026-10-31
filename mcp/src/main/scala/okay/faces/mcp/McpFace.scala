@@ -214,6 +214,8 @@ object Markdown {
       case View.Link(label, url) => s"[$label]($url)"
       case View.Datum(json, _) => "```json\n" + Json.pretty(json) + "\n```"
       case View.Masked(hint) => hint
+      // an image in words: its source too when it is an address, not the image itself in a data: URI
+      case View.Image(source, alt) => if (source.startsWith("data:")) s"[image: $alt]" else s"![$alt]($source)"
       case View.Picture(_, _, _, text) => text
       case View.Marked(m, x) if vocabulary.has(m) =>
         x match {

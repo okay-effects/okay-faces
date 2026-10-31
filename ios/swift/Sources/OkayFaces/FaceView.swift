@@ -160,6 +160,7 @@ struct Node: View {
       else { Text(label).dressed(look, "link") }
     case .datum(let text): Text(text).textSelection(.enabled).dressed(look, "datum")
     case .masked(let hint): Text(hint).dressed(look, "masked")
+    case .image(let source, let alt): ImageView(source: source, alt: alt).dressed(look, "image")
     case .marked(let mark, let inner):
       Node(view: inner, look: look, dialogue: dialogue, refs: refs).dressed(look, "mark", "mark-\(mark)")
     case .picture(let p): PictureView(picture: p, look: look).dressed(look, "picture")
@@ -214,5 +215,27 @@ struct PictureView: View {
     }
     .aspectRatio(picture.width / picture.height, contentMode: .fit)
     .accessibilityLabel(picture.text)
+  }
+}
+
+/// AN IMAGE: the image itself when the source is a data: URI (a photo the phone took), else fetched from its address;
+/// its words to VoiceOver
+struct ImageView: View {
+  let source: String
+  let alt: String
+  var body: some View {
+    Group {
+      if source.hasPrefix("data:"), let i = source.firstIndex(of: ","),
+         let data = Data(base64Encoded: String(source[source.index(after: i)...])), let image = UIImage(data: data) {
+        Image(uiImage: image).resizable().scaledToFit()
+      } else if let url = URL(string: source) {
+        AsyncImage(url: url) { $0.resizable().scaledToFit() } placeholder: { ProgressView() }
+      } else {
+        Text("[\(alt)]")
+      }
+    }
+    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+    .accessibilityLabel(alt)
+    .accessibilityIdentifier("image")
   }
 }

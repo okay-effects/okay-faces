@@ -140,6 +140,8 @@ class HtmlFaceSuite extends munit.FunSuite {
     assertEquals(Html.view(View.link("a <source>", "https://example.org/?a=1&b=2")),
       """<a class="okay-link" href="https://example.org/?a=1&amp;b=2" target="_blank" rel="noopener noreferrer">""" +
         "a &lt;source&gt;</a>")
+    assertEquals(Html.view(View.image("https://example.org/a.png?x=1&y=2", "a \"cat\"")),
+      """<img class="okay-image" src="https://example.org/a.png?x=1&amp;y=2" alt="a &quot;cat&quot;"/>""")
   }
 }
 

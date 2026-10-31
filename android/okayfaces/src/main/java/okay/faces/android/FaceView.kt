@@ -26,6 +26,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
@@ -174,6 +176,7 @@ fun View(node: Node, look: LookSpec, dialogue: Dialogue, refs: Boolean) {
     }
     is Node.Datum -> Dressed(look, "datum") { Text(node.text) }
     is Node.Masked -> Dressed(look, "masked") { Text(node.hint) }
+    is Node.Image -> Dressed(look, "image") { ImageView(node) }
     is Node.Marked -> Dressed(look, "mark", "mark-${node.mark}", modifier = Modifier.fillMaxSize()) {
       View(node.view, look, dialogue, refs) }
     is Node.Picture -> Dressed(look, "picture") { Picture(node, look) }
@@ -212,4 +215,25 @@ private fun Picture(p: Node.Picture, look: LookSpec) {
       }
     }
   }
+}
+
+/** AN IMAGE: decoded at once when the source is a data: URI (a photo the phone took), else fetched from its address on
+ * a thread of its own; its words to TalkBack */
+@Composable
+private fun ImageView(node: Node.Image) {
+  val bitmap by produceState<android.graphics.Bitmap?>(null, node.source) {
+    value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+      runCatching {
+        val bytes = if (node.source.startsWith("data:"))
+          android.util.Base64.decode(node.source.substringAfter(','), android.util.Base64.DEFAULT)
+        else java.net.URL(node.source).openStream().use { it.readBytes() }
+        android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+      }.getOrNull()
+    }
+  }
+  val b = bitmap
+  if (b == null) Text("[${node.alt}]")
+  else androidx.compose.foundation.Image(b.asImageBitmap(), node.alt,
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).testTag("image"),
+    contentScale = androidx.compose.ui.layout.ContentScale.FillWidth)
 }

@@ -18,7 +18,7 @@ object Notes {
   enum Move {
     case Add(text: String)
     case Open(index: Int)
-    case Clear, GitHub, Remind, Site
+    case Clear, GitHub, Remind, Site, Here, Unlock
   }
   val note: Shape[String] = Shape.text.described("Note", Some("what to remember"))
   val add = Action[String, Move]("add", "Add", Shape.record(Shape.field("text", note))(t => t)(t => t))(Move.Add(_))
@@ -39,15 +39,27 @@ object Notes {
           "Stars" -> View.text(f("stargazers_count")), "Updated" -> View.text(f("pushed_at"))))
       case _ => View.problem("GitHub: not JSON")
 
-  /** a note's own page, one may go back from: remind of it, or delete it */
+  /** a note's own page, one may go back from: its photo if it has one; remind of it, a photo to it, share it, or
+   * delete it */
   def page(notes: Vector[String], i: Int): Unit ! P =
-    offer[String, P](View.stack(View.heading("Note"), View.text(notes(i))), List(
-        Action.plain[String]("remind-note", "Remind me about it")("remind"),
-        Action.plain[String]("delete", "Delete")("delete"))).flatMap {
-      case "delete" =>
-        val next = notes.patch(i, Nil, 1)
-        save[P]("notes", next.mkString("\n")).flatMap(_ => turn(next))
-      case _ => remind[P]("Notes", notes(i), 5).flatMap(_ => turn(notes))
+    val key = s"photo:${notes(i)}"
+    load[P](key).flatMap { photo =>
+      offer[String, P](View.Group(None, Vector(View.heading("Note"), View.text(notes(i))) ++
+          photo.map(p => View.image(p, s"the photo of ${notes(i)}"))), List(
+          Action.plain[String]("remind-note", "Remind me about it")("remind"),
+          Action.plain[String]("photo", if photo.isEmpty then "Add a photo" else "Another photo")("photo"),
+          Action.plain[String]("share-note", "Share")("share"),
+          Action.plain[String]("delete", "Delete")("delete"))).flatMap {
+        case "delete" =>
+          val next = notes.patch(i, Nil, 1)
+          forget[P](key).flatMap(_ => save[P]("notes", next.mkString("\n"))).flatMap(_ => turn(next))
+        case "photo" => pickPhoto[P](800).flatMap {
+            case Some(p) => save[P](key, p).flatMap(_ => page(notes, i))
+            case None => page(notes, i)
+          }
+        case "share" => share[P](notes(i)).flatMap(_ => page(notes, i))
+        case _ => remind[P]("Notes", notes(i), 5).flatMap(_ => turn(notes))
+      }
     }
 
   def turn(notes: Vector[String]): Unit ! P =
@@ -55,7 +67,9 @@ object Notes {
       Shape.choice[Int](notes.indices.map(i => (i + 1).toString -> i)*)))(k => k)(k => k))(Move.Open(_))
     offer[Move, P](listing(notes), List(add, Action.plain[Move]("github", "okay-faces on GitHub")(Move.GitHub),
         Action.plain[Move]("remind", "Remind me in 5 seconds")(Move.Remind),
-        Action.plain[Move]("site", "Open okay-effects")(Move.Site)) ++
+        Action.plain[Move]("site", "Open okay-effects")(Move.Site),
+        Action.plain[Move]("here", "Note where I am")(Move.Here),
+        Action.plain[Move]("unlock", "Unlock")(Move.Unlock)) ++
       (if notes.nonEmpty then List(opening, Action.plain[Move]("clear", "Clear")(Move.Clear)) else Nil),
       okay.faces.Step.Options.returnable).flatMap {
       case Move.Open(i) => page(notes, i)
@@ -70,6 +84,17 @@ object Notes {
           show[P](if ok then View.info("A reminder in 5 seconds.") else View.warning("Notifications are off.")))
         .flatMap(_ => turn(notes))
       case Move.Site => open[P]("https://okay-effects.github.io").flatMap(_ => turn(notes))
+      case Move.Here => locate[P].flatMap {
+          case Some(p) =>
+            // degrees to four places, the same on every phone whatever its language
+            // (BigDecimal, not String.format: Scala Native has no DecimalFormat for a locale's)
+            def deg(d: Double): String = BigDecimal(d).setScale(4, BigDecimal.RoundingMode.HALF_UP).toString
+            val next = notes :+ s"At ${deg(p.latitude)}, ${deg(p.longitude)}"
+            save[P]("notes", next.mkString("\n")).flatMap(_ => turn(next))
+          case None => show[P](View.warning("Where you are is not known: location is off.")).flatMap(_ => turn(notes))
+        }
+      case Move.Unlock => verify[P]("Show that it is you").flatMap(ok =>
+          show[P](if ok then View.info("It is you.") else View.warning("Not unlocked."))).flatMap(_ => turn(notes))
     }
 
   val program: Unit ! P =

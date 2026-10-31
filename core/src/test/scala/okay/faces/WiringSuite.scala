@@ -26,4 +26,11 @@ class WiringSuite extends munit.FunSuite {
     assertEquals(okay.effects.json.parse(Json.print(who.encode(Who("Bo", Day(2000, 2, 29))))).map(who.decode),
       Right(Right(Who("Bo", Day(2000, 2, 29)))))
   }
+  test("an image crosses the wire and back, its source an address or the image itself") {
+    val photo = View.image("data:image/jpeg;base64,/9j/4AAQ", "a photo")
+    val far = View.image("https://example.org/a.png", "a picture")
+    assertEquals(ViewJson.decode(ViewJson.encode(photo)), Right(photo))
+    assertEquals(ViewJson.decode(ViewJson.encode(far)), Right(far))
+    assertEquals(Role.ofClass("okay-image"), Some(Role.Image))
+  }
 }

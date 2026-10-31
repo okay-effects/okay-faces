@@ -173,6 +173,7 @@ object Views {
       else a(cls := Role.Link.classes, href := url, label)
     case View.Datum(json, _) => pre(cls := Role.Datum.classes, Json.pretty(json))
     case View.Masked(hint) => span(cls := Role.Masked.classes, hint)
+    case View.Image(source, words) => img(cls := Role.Image.classes, src := source, alt := words)
     // A PICTURE THE PROGRAM DESCRIBES: an <svg> of its shapes, the markup of `View.Picture.svg`
     case p: View.Picture =>
       import View.Picture.{Band, Box, Label, cls => mark, n}

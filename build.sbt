@@ -270,6 +270,8 @@ lazy val mobile = CrossProject("mobile", file("mobile"))(platformsOf(Set("native
 lazy val mobileExample = CrossProject("mobileExample", file("mobile/example"))(platformsOf(Set("native")): _*)
   .crossType(CrossType.Pure).dependsOn(mobile)
   .settings(name := "okay-faces-mobile-example", publish / skip := true, scalaVersion := scala3,
+    // the apps' phone is one per process (MobileApp.phone): their suites one at a time
+    Test / parallelExecution := false,
     crossScalaVersions := Seq(scala3),
     Compile / unmanagedSourceDirectories += (ThisBuild / baseDirectory).value / "examples" / "src" / "main" / "scala",
     libraryDependencies ++= Seq("io.github.okay-effects" %%% "okay-effects-machine" % okayEffects,

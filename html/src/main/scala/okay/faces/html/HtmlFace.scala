@@ -190,6 +190,7 @@ object Html {
       s"""<a ${cls(Role.Link)} href="${esc(url)}" target="_blank" rel="noopener noreferrer">${esc(label)}</a>"""
     case View.Datum(json, _) => s"<pre ${cls(Role.Datum)}>${esc(Json.pretty(json))}</pre>"
     case View.Masked(hint) => s"<span ${cls(Role.Masked)}>${esc(hint)}</span>"
+    case View.Image(source, alt) => s"""<img ${cls(Role.Image)} src="${esc(source)}" alt="${esc(alt)}"/>"""
     case p: View.Picture => View.Picture.svg(p, esc)
     case View.Marked(mark, x) => s"<span ${cls(Role.Mark(mark))}>${view(x, here)}</span>"
   }

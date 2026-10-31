@@ -32,6 +32,18 @@ object Device {
   final case class Notify[X](title: String, body: String, after: Long, answer: Boolean => X) extends Device[X]
   /** a link opened by the phone (the browser, the mail, a call); whether it could */
   final case class Open[X](url: String, answer: Boolean => X) extends Device[X]
+  /** A PHOTO the person takes (`camera`) or picks (`library`): a JPEG at most `size` pixels across, as a data: URI —
+   * what `View.Image` shows and a request sends; none when they did not */
+  final case class Photo[X](from: String, size: Int, answer: Option[String] => X) extends Device[X]
+  /** where the phone is, if the person lets the app know */
+  final case class Locate[X](answer: Option[Place] => X) extends Device[X]
+  /** a text (and a link) handed to the phone's sharing — a message, the mail, another app; whether it went */
+  final case class Share[X](text: String, url: Option[String], answer: Boolean => X) extends Device[X]
+  /** the person themselves, by the phone's own check — Face ID, a fingerprint, the passcode; `reason` said to them */
+  final case class Verify[X](reason: String, answer: Boolean => X) extends Device[X]
+
+  /** a place: degrees, and how far off it may be, in metres */
+  final case class Place(latitude: Double, longitude: Double, accuracy: Double)
 
   /** the network's answer */
   final case class Reply(status: Int, headers: Map[String, String], body: String) {
@@ -62,7 +74,13 @@ object Device {
     case Notify(t, b, a, _) => Json.obj("op" -> Json.Str("notify"), "title" -> Json.Str(t), "body" -> Json.Str(b),
         "after" -> Json.num(a))
     case Open(u, _) => Json.obj("op" -> Json.Str("open"), "url" -> Json.Str(u))
+    case Photo(f, s, _) => Json.obj("op" -> Json.Str("photo"), "from" -> Json.Str(f), "size" -> Json.num(s))
+    case Locate(_) => Json.obj("op" -> Json.Str("locate"))
+    case Share(t, u, _) => Json.Obj(Vector("op" -> Json.Str("share"), "text" -> Json.Str(t)) ++
+        u.map(x => "url" -> Json.Str(x)))
+    case Verify(r, _) => Json.obj("op" -> Json.Str("verify"), "reason" -> Json.Str(r))
   }
+  private def number(j: Json, k: String): Option[Double] = field(j, k).collect { case Json.Num(n) => n.toDouble }
 
   private def field(j: Json, k: String): Option[Json] = j match { case o: Json.Obj => o.get(k); case _ => None }
   private def text(j: Json, k: String): Option[String] = field(j, k).collect { case Json.Str(s) => s }
@@ -82,12 +100,19 @@ object Device {
     case Now(k) => k(field(j, "value").collect { case Json.Num(n) => n.toLong }.getOrElse(0L))
     case Notify(_, _, _, k) => k(flag(j, "ok"))
     case Open(_, k) => k(flag(j, "ok"))
+    case Photo(_, _, k) => k(text(j, "value"))
+    case Locate(k) => k(for (la <- number(j, "latitude"); lo <- number(j, "longitude"))
+        yield Place(la, lo, number(j, "accuracy").getOrElse(0.0)))
+    case Share(_, _, k) => k(flag(j, "ok"))
+    case Verify(_, k) => k(flag(j, "ok"))
   }
 
   /** A DEVICE IN MEMORY, for a test or a host with no phone: what is kept and hidden in maps, the network a
    * function, the time a clock, what was notified and opened kept to look at */
   final class Memory(network: (String, String, String) => Reply = (_, u, _) => Reply(404, Map.empty, u),
-    clock: () => Long = () => System.currentTimeMillis()) extends Port {
+    clock: () => Long = () => System.currentTimeMillis(), val photo: Option[String] = None,
+    val place: Option[Place] = None, val person: Boolean = true) extends Port {
+    val shared = scala.collection.mutable.ListBuffer.empty[String]
     val kept = scala.collection.mutable.Map.empty[String, String]
     val hidden = scala.collection.mutable.Map.empty[String, String]
     val notified = scala.collection.mutable.ListBuffer.empty[(String, String)]
@@ -113,6 +138,11 @@ object Device {
         case "notify" => notified += ((text(j, "title").getOrElse(""), text(j, "body").getOrElse(""))); Json.obj(
             "ok" -> Json.Bool(true))
         case "open" => opened += text(j, "url").getOrElse(""); Json.obj("ok" -> Json.Bool(true))
+        case "photo" => photo.fold[Json](Json.Obj.empty)(p => Json.obj("value" -> Json.Str(p)))
+        case "locate" => place.fold[Json](Json.Obj.empty)(p => Json.obj("latitude" -> Json.Num(BigDecimal(p.latitude)),
+            "longitude" -> Json.Num(BigDecimal(p.longitude)), "accuracy" -> Json.Num(BigDecimal(p.accuracy))))
+        case "share" => shared += text(j, "text").getOrElse(""); Json.obj("ok" -> Json.Bool(true))
+        case "verify" => Json.obj("ok" -> Json.Bool(person))
         case other => Json.obj("error" -> Json.Str(s"no operation $other"))
       }
     }
@@ -149,6 +179,18 @@ class DeviceWords[F <: Effects with Singleton](implicit val fx: F) {
     perform[Device].apply[R, Boolean](Notify[Boolean](title, body, after, b => b))
   def open[R[_]](url: String)(implicit in: In[Device, R]): Boolean ! R =
     perform[Device].apply[R, Boolean](Open[Boolean](url, b => b))
+  /** a photo the person takes with the camera, as a data: URI; at most `size` pixels across */
+  def takePhoto[R[_]](size: Int = 1024)(implicit in: In[Device, R]): Option[String] ! R =
+    perform[Device].apply[R, Option[String]](Photo[Option[String]]("camera", size, p => p))
+  /** a photo the person picks from theirs */
+  def pickPhoto[R[_]](size: Int = 1024)(implicit in: In[Device, R]): Option[String] ! R =
+    perform[Device].apply[R, Option[String]](Photo[Option[String]]("library", size, p => p))
+  def locate[R[_]](implicit in: In[Device, R]): Option[Place] ! R =
+    perform[Device].apply[R, Option[Place]](Locate[Option[Place]](p => p))
+  def share[R[_]](text: String, url: Option[String] = None)(implicit in: In[Device, R]): Boolean ! R =
+    perform[Device].apply[R, Boolean](Share[Boolean](text, url, b => b))
+  def verify[R[_]](reason: String)(implicit in: In[Device, R]): Boolean ! R =
+    perform[Device].apply[R, Boolean](Verify[Boolean](reason, b => b))
 }
 
 object phone extends DeviceWords[Tagless.type]()(Tagless)

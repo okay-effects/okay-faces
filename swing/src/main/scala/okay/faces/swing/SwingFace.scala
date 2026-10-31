@@ -225,6 +225,22 @@ object SwingFace {
   }
   /** THE FACE'S SETTINGS, one value: how it looks (`None`: the platform's look and feel) */
   final case class Settings(look: Option[Look] = None)
+
+  /** AN IMAGE, read from its source — the bytes of a data: URI, or an address — at most 480 wide; its words when it
+   * does not read */
+  def image(source: String, alt: String): JLabel = {
+    val read = scala.util.Try {
+      val bytes =
+        if (source.startsWith("data:")) java.util.Base64.getDecoder.decode(source.substring(source.indexOf(',') + 1))
+        else { val in = new java.net.URI(source).toURL.openStream(); try in.readAllBytes() finally in.close() }
+      javax.imageio.ImageIO.read(new java.io.ByteArrayInputStream(bytes))
+    }.toOption.flatMap(Option(_))
+    read.fold(new JLabel(s"[image: $alt]")) { i =>
+      val w = math.min(480, i.getWidth); val h = i.getHeight * w / math.max(1, i.getWidth)
+      val l = new JLabel(new javax.swing.ImageIcon(i.getScaledInstance(w, h, java.awt.Image.SCALE_SMOOTH)))
+      l.setToolTipText(alt); l
+    }
+  }
   /** over the implementation in scope */
   def apply[F <: Runner with Singleton]()(implicit fx: F): SwingFace[F] = new SwingFace[F]()(fx)
   /** THE HANDLER, whole: `run(SwingFace.handle(Noughts.games))` — a program of nothing, run on the implementation in
@@ -310,6 +326,7 @@ object Views {
       a.setFont(new Font(Font.MONOSPACED, Font.PLAIN, 12)); named(a, Role.Datum.cls)
     case View.Link(l, url) => val c = new JLabel(s"$l <$url>"); c.setToolTipText(url); named(c, Role.Link.cls)
     case View.Masked(hint) => named(new JLabel(hint), Role.Masked.cls)
+    case View.Image(source, alt) => named(SwingFace.image(source, alt), Role.Image.cls)
     // A PICTURE IN WORDS, as the terminal shows it
     case View.Picture(_, _, _, text) =>
       named(new JLabel("<html>" + text.replace("&", "&amp;").replace("<", "&lt;").replace("\n", "<br>") + "</html>"),
@@ -345,6 +362,7 @@ object Views {
     case View.Link(l, url) => s"$l <$url>"
     case View.Datum(json, _) => Json.print(json)
     case View.Masked(hint) => hint
+    case View.Image(_, alt) => alt
     case View.Picture(_, _, _, text) => text
     case View.Marked(_, x) => text(x)
   }

@@ -35,6 +35,9 @@ object View {
   final case class Link(label: String, url: String) extends View
   /** a structured value shown as it is, its schema if known */
   final case class Datum(json: Json, schema: Option[Schema] = None) extends View
+  /** AN IMAGE, by its source — an address (`https://…`) or the image itself (`data:image/jpeg;base64,…`, a photo a
+   * phone took) — and its words, `alt`, for a face with no images and for a reader */
+  final case class Image(source: String, alt: String) extends View
   /** a secret NOT shown: "•••• 4821" */
   final case class Masked(hint: String) extends View
   /** a view marked with the application's own word — "price", "overdue" — for a style's rule by `Role.Mark(mark)`;
@@ -110,6 +113,7 @@ object View {
   def stack(children: View*): View = Group(None, children.toVector)
   def marked(mark: String, view: View): View = Marked(mark, view)
   def link(label: String, url: String): View = Link(label, url)
+  def image(source: String, alt: String): View = Image(source, alt)
   /** the title of what is shown: the first level-1 heading, depth first — a window's, a page's, a server's name */
   def title(views: Seq[View]): Option[String] = views.iterator.map(title).collectFirst { case Some(t) => t }
   def title(v: View): Option[String] = v match {

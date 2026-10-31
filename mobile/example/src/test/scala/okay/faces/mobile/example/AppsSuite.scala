@@ -34,3 +34,24 @@ class NotesSuite extends munit.FunSuite {
     assertEquals(phone.notified.toList, List("Notes" -> "Buy milk"))
   }
 }
+
+class NotesDeviceSuite extends munit.FunSuite {
+  import okay.faces.mobile.{Device, MobileApp}
+
+  test("the phone's other powers: where it is, a photo to a note, a note shared, the person checked") {
+    val phone = new Device.Memory(photo = Some("data:image/jpeg;base64,/9j/4A"),
+      place = Some(Device.Place(51.1079, 17.0385, 12)), person = false)
+    MobileApp.phone = phone
+    val d = new NotesApp().dialogue
+    d.open()
+    val here = d.act("""{"action": "here"}""")
+    assert(here.contains("At 51.1079, 17.0385"), here)
+    assert(d.act("""{"action": "ref", "form": {"key": "1"}}""").contains("Add a photo"))
+    val withPhoto = d.act("""{"action": "photo"}""")
+    assert(withPhoto.contains("\"type\":\"image\"") && withPhoto.contains("/9j/4A"), withPhoto)
+    d.act("""{"action": "share-note"}""")
+    assertEquals(phone.shared.toList, List("At 51.1079, 17.0385"))
+    d.back()
+    assert(d.act("""{"action": "unlock"}""").contains("Not unlocked."))
+  }
+}

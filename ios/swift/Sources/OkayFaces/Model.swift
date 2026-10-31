@@ -24,6 +24,7 @@ indirect enum ViewNode {
   case link(String, String)
   case datum(String)
   case masked(String)
+  case image(String, String)
   case marked(String, ViewNode)
   case picture(Picture)
 
@@ -45,6 +46,7 @@ indirect enum ViewNode {
         options: [.fragmentsAllowed, .prettyPrinted, .sortedKeys])) ?? Data()
       self = .datum(String(decoding: data, as: UTF8.self))
     case "masked": self = .masked(str(o["hint"]) ?? "")
+    case "image": self = .image(str(o["source"]) ?? "", str(o["alt"]) ?? "")
     case "marked": self = .marked(str(o["mark"]) ?? "", ViewNode(o["view"]))
     case "picture": self = .picture(Picture(o))
     default: self = .empty

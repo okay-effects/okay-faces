@@ -23,6 +23,9 @@ targets:
         GENERATE_INFOPLIST_FILE: YES
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         INFOPLIST_KEY_CFBundleDisplayName: okay-faces
+        INFOPLIST_KEY_NSLocationWhenInUseUsageDescription: The app notes where you are when you ask it to.
+        INFOPLIST_KEY_NSCameraUsageDescription: The app takes a photo when you ask it to.
+        INFOPLIST_KEY_NSFaceIDUsageDescription: The app checks that it is you when you ask it to.
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
         OTHER_LDFLAGS: [-lc++]

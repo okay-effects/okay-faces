@@ -123,4 +123,41 @@ class ShellTest {
     waitTag("act-delete"); tap("act-delete")
     waitText("Nothing kept yet.")
   }
+
+  /** the phone's other powers: where it is (the emulator's place, set from outside), a photo picked onto a note, the
+   * note shared, the person checked by the screen lock's PIN the test sets */
+  @Test fun notesPowers() {
+    val pkg = instrumentation.targetContext.packageName
+    instrumentation.uiAutomation.grantRuntimePermission(pkg, android.Manifest.permission.ACCESS_FINE_LOCATION)
+    device.executeShellCommand("locksettings set-pin 1111")
+    launch("okay.faces.mobile.example.NotesApp", reset = true)
+    waitText("Nothing kept yet.")
+    tap("act-here")
+    waitText("At 51.1079, 17.0385", 30000)
+
+    rule.onNodeWithTag("ref-1").performClick()
+    waitTag("act-photo"); tap("act-photo")
+    // the system's photo picker: the first photo in it
+    val photo = device.wait(Until.findObject(By.descContains("Photo")), 15000)
+    checkNotNull(photo) { "the picker's photos" }.click()
+    waitTag("image", 20000)
+    shot("notes-5-photo")
+
+    tap("act-share-note")
+    // the system's sheet: the intent resolver's (Android 14 and on), or the system's own before
+    check(device.wait(Until.hasObject(By.pkg(java.util.regex.Pattern.compile("com.android.intentresolver|android"))),
+      10000)) { "the share sheet" }
+    shot("notes-6-share", idle = false)
+    device.pressBack()
+    waitTag("act-delete")
+
+    Espresso.pressBack()
+    waitTag("act-unlock"); tap("act-unlock")
+    // the system's check: the PIN of the screen lock
+    check(device.wait(Until.hasObject(By.clazz("android.widget.EditText")), 10000)) { "the system asks for the PIN" }
+    shot("notes-7-unlock", idle = false)
+    device.executeShellCommand("input text 1111"); device.executeShellCommand("input keyevent 66")
+    waitText("It is you.", 15000)
+    device.executeShellCommand("locksettings clear --old 1111")
+  }
 }

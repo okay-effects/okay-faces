@@ -32,4 +32,7 @@ class AnsiSuite extends munit.FunSuite {
     assert(out.contains("WHO"))
     assertEquals(Ansi.sgr(Look.default.style(Role.Text), Look.default), Nil)
   }
+  test("an image in words: its alt, as a terminal cannot show it") {
+    assertEquals(Render.view(okay.faces.View.image("data:image/png;base64,iVBOR", "a cat")), List("[image: a cat]"))
+  }
 }

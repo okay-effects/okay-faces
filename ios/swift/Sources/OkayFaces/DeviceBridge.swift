@@ -34,6 +34,10 @@ enum DeviceBridge {
     case "notify":
       return ["ok": Notifications.post(str(op["title"]) ?? "", str(op["body"]) ?? "", num(op["after"]) ?? 0)]
     case "open": return ["ok": open(str(op["url"]) ?? "")]
+    case "photo": return Photos.take(str(op["from"]) ?? "library", Int(num(op["size"]) ?? 1024)).map { ["value": $0] } ?? [:]
+    case "locate": return Where.now()
+    case "share": return ["ok": Sharing.share(str(op["text"]) ?? "", str(op["url"]))]
+    case "verify": return ["ok": Person.verify(str(op["reason"]) ?? "")]
     case let other: return ["error": "no operation \(other)"]
     }
   }

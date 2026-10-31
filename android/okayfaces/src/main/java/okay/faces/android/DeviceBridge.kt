@@ -37,9 +37,27 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
   private val secrets = context.getSharedPreferences("okay-faces-secrets", Context.MODE_PRIVATE)
   private val main = Handler(Looper.getMainLooper())
   @Volatile private var asked: ((Boolean) -> Unit)? = null
+  @Volatile private var picked: ((android.net.Uri?) -> Unit)? = null
+  @Volatile private var snapped: ((android.graphics.Bitmap?) -> Unit)? = null
   // registered while the activity is created, as Android requires
   private val permission: ActivityResultLauncher<String> =
     activity.registerForActivityResult(ActivityResultContracts.RequestPermission()) { ok -> asked?.invoke(ok) }
+  private val picker = activity.registerForActivityResult(ActivityResultContracts.PickVisualMedia()) { picked?.invoke(it) }
+  private val camera = activity.registerForActivityResult(ActivityResultContracts.TakePicturePreview()) { snapped?.invoke(it) }
+
+  /** a permission, asked once of the person, waited for here */
+  private fun allowed(p: String): Boolean {
+    if (context.checkSelfPermission(p) == PackageManager.PERMISSION_GRANTED) return true
+    return await { done -> asked = done; main.post { permission.launch(p) } } ?: false
+  }
+  /** what the main thread hands to `done`, waited for on this one */
+  private fun <T> await(start: (((T) -> Unit)) -> Unit): T? {
+    val done = CountDownLatch(1)
+    var result: T? = null
+    start { result = it; done.countDown() }
+    done.await(120, TimeUnit.SECONDS)
+    return result
+  }
 
   override fun call(request: String): String {
     val op = try { JSONObject(request) } catch (e: Exception) { JSONObject() }
@@ -56,6 +74,11 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
     "now" -> JSONObject().put("value", System.currentTimeMillis())
     "notify" -> JSONObject().put("ok", notify(op.str("title") ?: "", op.str("body") ?: "", op.num("after") ?: 0.0))
     "open" -> JSONObject().put("ok", open(op.str("url") ?: ""))
+    "photo" -> photo(op.str("from") ?: "library", (op.num("size") ?: 1024.0).toInt())?.let {
+      JSONObject().put("value", it) } ?: JSONObject()
+    "locate" -> locate()
+    "share" -> JSONObject().put("ok", share(op.str("text") ?: "", op.str("url")))
+    "verify" -> JSONObject().put("ok", verify(op.str("reason") ?: ""))
     else -> JSONObject().put("error", "no operation ${op.str("op")}")
   }
 
@@ -103,6 +126,63 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
     main.postDelayed({ manager.notify((System.nanoTime() % Int.MAX_VALUE).toInt(), n) }, (after * 1000).toLong())
     return true
   }
+
+  /** A PHOTO: from the camera, or picked; a JPEG at most `size` across, as a data: URI */
+  private fun photo(from: String, size: Int): String? {
+    val bitmap: android.graphics.Bitmap? = if (from == "camera") {
+      if (!allowed(Manifest.permission.CAMERA)) null
+      else await<android.graphics.Bitmap?> { done -> snapped = done; main.post { camera.launch(null) } }
+    } else {
+      val uri = await<android.net.Uri?> { done -> picked = done
+        main.post { picker.launch(androidx.activity.result.PickVisualMediaRequest(
+          ActivityResultContracts.PickVisualMedia.ImageOnly)) } }
+      uri?.let { u -> context.contentResolver.openInputStream(u)?.use { android.graphics.BitmapFactory.decodeStream(it) } }
+    }
+    val b = bitmap ?: return null
+    val k = minOf(1f, size.toFloat() / maxOf(b.width, b.height))
+    val scaled = android.graphics.Bitmap.createScaledBitmap(b, (b.width * k).toInt().coerceAtLeast(1),
+      (b.height * k).toInt().coerceAtLeast(1), true)
+    val out = java.io.ByteArrayOutputStream()
+    scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 80, out)
+    return "data:image/jpeg;base64," + Base64.encodeToString(out.toByteArray(), Base64.NO_WRAP)
+  }
+
+  /** WHERE THE PHONE IS: the permission asked once, then the current fix */
+  private fun locate(): JSONObject {
+    if (!allowed(Manifest.permission.ACCESS_FINE_LOCATION)) return JSONObject()
+    val manager = context.getSystemService(android.location.LocationManager::class.java)
+    val provider = listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)
+      .firstOrNull { manager.isProviderEnabled(it) } ?: return JSONObject()
+    @Suppress("MissingPermission")
+    val place = await<android.location.Location?> { done ->
+      manager.getCurrentLocation(provider, null, context.mainExecutor) { done(it) } }
+      ?: @Suppress("MissingPermission") manager.getLastKnownLocation(provider) ?: return JSONObject()
+    return JSONObject().put("latitude", place.latitude).put("longitude", place.longitude)
+      .put("accuracy", place.accuracy.toDouble())
+  }
+
+  /** SHARING: the phone's own sheet, its text and link */
+  private fun share(text: String, url: String?): Boolean {
+    val send = Intent(Intent.ACTION_SEND).setType("text/plain")
+      .putExtra(Intent.EXTRA_TEXT, if (url == null) text else "$text $url")
+    main.post { activity.startActivity(Intent.createChooser(send, null)) }
+    return true
+  }
+
+  /** THE PERSON THEMSELVES: a fingerprint, the face, or the screen lock — the system's prompt */
+  private fun verify(reason: String): Boolean = await<Boolean> { done ->
+    main.post {
+      val prompt = android.hardware.biometrics.BiometricPrompt.Builder(activity).setTitle(reason)
+        .setAllowedAuthenticators(android.hardware.biometrics.BiometricManager.Authenticators.BIOMETRIC_STRONG or
+          android.hardware.biometrics.BiometricManager.Authenticators.DEVICE_CREDENTIAL).build()
+      prompt.authenticate(android.os.CancellationSignal(), context.mainExecutor,
+        object : android.hardware.biometrics.BiometricPrompt.AuthenticationCallback() {
+          override fun onAuthenticationSucceeded(r: android.hardware.biometrics.BiometricPrompt.AuthenticationResult) =
+            done(true)
+          override fun onAuthenticationError(code: Int, message: CharSequence) = done(false)
+        })
+    }
+  } ?: false
 
   private fun open(url: String): Boolean = try {
     val i = Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

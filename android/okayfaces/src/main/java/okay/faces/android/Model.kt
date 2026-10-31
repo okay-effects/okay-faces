@@ -27,6 +27,7 @@ sealed class Node {
   data class Link(val label: String, val url: String) : Node()
   data class Datum(val text: String) : Node()
   data class Masked(val hint: String) : Node()
+  data class Image(val source: String, val alt: String) : Node()
   data class Marked(val mark: String, val view: Node) : Node()
   data class Picture(val width: Double, val height: Double, val text: String, val shapes: List<JSONObject>) : Node()
 
@@ -48,6 +49,7 @@ sealed class Node {
         "link" -> Link(o.str("label") ?: "", o.str("url") ?: "")
         "datum" -> Datum(o.opt("value")?.let { if (it is JSONObject) it.toString(2) else it.toString() } ?: "")
         "masked" -> Masked(o.str("hint") ?: "")
+        "image" -> Image(o.str("source") ?: "", o.str("alt") ?: "")
         "marked" -> Marked(o.str("mark") ?: "", of(o.optJSONObject("view")))
         "picture" -> Picture(o.num("width") ?: 1.0, o.num("height") ?: 1.0, o.str("text") ?: "", o.objs("shapes"))
         else -> Empty

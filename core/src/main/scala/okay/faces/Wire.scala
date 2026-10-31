@@ -57,6 +57,8 @@ object ViewJson {
     case View.Datum(json, schema) => Json.Obj(Vector("type" -> Json.Str("datum"), "value" -> json) ++ schema.map(s =>
         "schema" -> Schema.shape.encode(s)))
     case View.Masked(hint) => Json.obj("type" -> Json.Str("masked"), "hint" -> Json.Str(hint))
+    case View.Image(source, alt) =>
+      Json.obj("type" -> Json.Str("image"), "source" -> Json.Str(source), "alt" -> Json.Str(alt))
     case View.Marked(mark, v) => Json.obj("type" -> Json.Str("marked"), "mark" -> Json.Str(mark), "view" -> encode(v))
     case View.Picture(w, h, shapes, text) => Json.obj("type" -> Json.Str("picture"), "width" -> Json.num(w),
         "height" -> Json.num(h), "text" -> Json.Str(text), "shapes" -> Json.Arr(shapes.map(shape)))
@@ -130,6 +132,7 @@ object ViewJson {
                 Schema.shape.decode(s).left.map(okay.effects.shape.Problem.render).map(sc => View.Datum(v, Some(sc)))
             })
         case Some(Json.Str("masked")) => str(o, "hint").map(View.Masked(_))
+        case Some(Json.Str("image")) => for { s <- str(o, "source"); a <- str(o, "alt") } yield View.Image(s, a)
         case Some(Json.Str("picture")) => for {
             w <- int(o, "width"); h <- int(o, "height"); t <- str(o, "text")
             shapes <- arr(o, "shapes").flatMap(xs => all(xs.map(unshape)))
