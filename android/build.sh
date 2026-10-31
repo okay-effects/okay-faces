@@ -1,17 +1,13 @@
 #!/bin/sh
-# THE APPLICATION'S SCALA FOR ANDROID (specs/mobile.md): `android/build.sh [sbt project]` — the project's runtime
-# classpath (its jar, okay-faces', okay-simple's, Scala's) copied into android/libs, which okayfaces takes; then
-# `./gradlew`-less: `gradle -p android :shell:assembleDebug`. Default: the examples (mobileExample).
+# THE EXAMPLES' SCALA FOR ANDROID (specs/mobile.md): okay-faces' Scala (core, mobile) published to ~/.m2 as the
+# snapshot okayfaces builds on, and the examples' own classes jarred into android/libs, which the shell takes; the
+# rest comes from Maven. Then `gradle -p android :shell:assembleDebug`, or android/test.sh.
 set -eu
 here=$(cd "$(dirname "$0")/.." && pwd)
-project=${1:-mobileExample}
 cd "$here"
-cp=$(sbt -batch -error "export $project/Runtime/fullClasspath" | tail -1)
+dirs=$(sbt -batch -error "core/publishM2" "mobile/publishM2" "export mobileExample/Compile/fullClasspath" | tail -1)
 rm -rf android/libs && mkdir -p android/libs
-echo "$cp" | tr ':' '\n' | while read -r f; do
-  case "$f" in
-    *.jar) cp "$f" android/libs/ ;;
-    */classes) [ -d "$f" ] && (cd "$f" && jar cf "$here/android/libs/classes-$(echo "$f" | md5 | cut -c1-8).jar" .) ;;
-  esac
+echo "$dirs" | tr ':' '\n' | grep "mobile/example" | while read -r d; do
+  [ -d "$d" ] && (cd "$d" && jar cf "$here/android/libs/examples.jar" .)
 done
-ls android/libs | wc -l
+ls android/libs

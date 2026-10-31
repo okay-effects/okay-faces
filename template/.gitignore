@@ -1,0 +1,10 @@
+.bsp/
+target/
+.build/
+ios/lib/
+ios/*.xcodeproj/
+android/.gradle/
+android/build/
+android/app/build/
+android/libs/
+android/local.properties

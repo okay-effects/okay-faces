@@ -6,6 +6,9 @@ here=$(cd "$(dirname "$0")" && pwd)
 export PATH="$HOME/Library/Android/sdk/platform-tools:$PATH"
 "$here/build.sh"
 cd "$here"
+adb wait-for-device
+until [ "$(adb shell getprop sys.boot_completed | tr -d '\r')" = 1 ]; do sleep 2; done
+adb shell rm -rf /sdcard/Download/okay-faces
 gradle -q :shell:connectedDebugAndroidTest
 rm -rf /tmp/okay-faces-android && mkdir -p /tmp/okay-faces-android
 adb pull /sdcard/Download/okay-faces/. /tmp/okay-faces-android/ >/dev/null

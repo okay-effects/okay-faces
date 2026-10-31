@@ -43,6 +43,14 @@ faces' tests do not end there yet.
      "++2.13.18 coreNative/publish" "++2.13.18 mobileNative/publish"
    ```
 
+   The Android face, an AAR on the release's okay-faces-mobile (a JDK 17 or 21 for Gradle):
+
+   ```sh
+   android/publish.sh 0.1.0      # android/okayfaces/build/repo, rsynced beside target/pages-maven below
+   ```
+
+   The Swift package is the repository's root (`Package.swift`): the release's tag is its version for Xcode.
+
 4. Onto `gh-pages`, under `maven/`, beside the releases already there:
 
    ```sh
@@ -50,6 +58,7 @@ faces' tests do not end there yet.
    git worktree add /tmp/okay-faces-pages gh-pages
    mkdir -p /tmp/okay-faces-pages/maven
    rsync -ac target/pages-maven/ /tmp/okay-faces-pages/maven/   # -c: a republished checksum keeps its size
+   rsync -ac android/okayfaces/build/repo/ /tmp/okay-faces-pages/maven/
    touch /tmp/okay-faces-pages/.nojekyll
    git -C /tmp/okay-faces-pages add -A
    git -C /tmp/okay-faces-pages commit -m "release 0.1.0"

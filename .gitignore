@@ -3,3 +3,5 @@ target/
 .idea/
 .metals/
 .bloop/
+.build/
+.swiftpm/

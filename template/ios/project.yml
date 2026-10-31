@@ -1,0 +1,31 @@
+# THE APP ON AN iPHONE: `ios/build.sh` (the app's Scala into lib/App.xcframework), then `xcodegen` here and open
+# App.xcodeproj — choose your team under Signing to run on your own phone
+name: App
+options:
+  bundleIdPrefix: com.example
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  OkayFaces:
+    url: https://github.com/okay-effects/okay-faces
+    from: 0.1.0
+targets:
+  App:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: OkayFaces
+      - framework: lib/App.xcframework
+        embed: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.app
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_CFBundleDisplayName: App
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        OTHER_LDFLAGS: [-lc++]
+        "EXCLUDED_ARCHS[sdk=iphonesimulator*]": x86_64
+        SWIFT_VERSION: "5.0"

@@ -7,7 +7,7 @@ options:
     iOS: "17.0"
 packages:
   OkayFaces:
-    path: ../../swift
+    path: ../../..
 targets:
   Shell:
     type: application

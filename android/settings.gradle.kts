@@ -4,7 +4,13 @@ pluginManagement {
   repositories { google(); mavenCentral(); gradlePluginPortal() }
 }
 dependencyResolutionManagement {
-  repositories { google(); mavenCentral() }
+  repositories {
+    google(); mavenCentral()
+    // okay-faces and okay-simple, from their releases on GitHub Pages; a snapshot of one's own from ~/.m2
+    maven("https://okay-effects.github.io/okay-faces/maven")
+    maven("https://okay-effects.github.io/okay-simple/maven")
+    mavenLocal()
+  }
 }
 rootProject.name = "okay-faces-android"
 include(":okayfaces", ":shell")
