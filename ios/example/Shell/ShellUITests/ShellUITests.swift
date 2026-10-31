@@ -223,4 +223,46 @@ final class ShellUITests: XCTestCase {
       .waitForExistence(timeout: 10))
     shot(app, "sync-2-shared")
   }
+
+  /// NOTIFICATIONS, THE PHONE'S SIDE: signed in, the person allows notifications, the phone's APNs token registered
+  /// with the backend; "Notify my other phones" asks the backend to send (with no APNs key locally, none taken)
+  func testPushRegistration() {
+    let app = XCUIApplication()
+    app.launchArguments = ["-app", "okay.faces.mobile.example.NotesApp", "-reset", "YES",
+      "-okay-faces.cloud", "http://127.0.0.1:8790"]
+    app.launch()
+    XCTAssert(app.buttons["act-sync"].waitForExistence(timeout: 10))
+    app.buttons["act-sync"].tap()
+    let email = app.textFields["field-email"]
+    XCTAssert(email.waitForExistence(timeout: 10))
+    email.tap(); email.typeText("push@example.org")
+    app.buttons["act-email"].tap()
+    let told = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'A test server'")).firstMatch
+    XCTAssert(told.waitForExistence(timeout: 15))
+    let field = app.textFields["field-code"]
+    field.tap(); field.typeText(String(told.label.suffix(6)))
+    app.buttons["act-code"].tap()
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    let allow = springboard.buttons["Allow"]
+    if allow.waitForExistence(timeout: 10) { allow.tap() }
+    XCTAssert(app.buttons["act-notify"].waitForExistence(timeout: 20), "signed in, notifications asked")
+    app.buttons["act-notify"].tap()
+    let answered = app.staticTexts.matching(NSPredicate(
+      format: "label BEGINSWITH 'Sent to' OR label BEGINSWITH 'No phone of yours'")).firstMatch
+    XCTAssert(answered.waitForExistence(timeout: 15))
+    shot(app, "push-1-asked")
+  }
+
+  /// NOTIFICATIONS, RECEIVED: the app open, a notification arrives (put into the simulator from outside — `xcrun
+  /// simctl push`, as APNs would deliver it) and shows over the app
+  func testReceivesPush() {
+    let app = XCUIApplication()
+    app.launchArguments = ["-app", "okay.faces.mobile.example.NotesApp"]
+    app.launch()
+    let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
+    let banner = springboard.descendants(matching: .any)
+      .matching(NSPredicate(format: "label CONTAINS 'From the server'")).firstMatch
+    XCTAssert(banner.waitForExistence(timeout: 90), "the notification shown")
+    shot(app, "push-2-received")
+  }
 }

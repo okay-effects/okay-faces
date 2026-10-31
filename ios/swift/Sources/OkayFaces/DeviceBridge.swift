@@ -40,6 +40,7 @@ enum DeviceBridge {
     case "share": return ["ok": Sharing.share(str(op["text"]) ?? "", str(op["url"]))]
     case "verify": return ["ok": Person.verify(str(op["reason"]) ?? "")]
     case "language": return ["value": Locale.preferredLanguages.first ?? "en"]
+    case "push": return Pushes.token().map { ["value": "apns:" + $0] } ?? [:]
     case "identity": return (str(op["provider"]) == "apple" ? AppleID.token() : nil).map { ["value": $0] } ?? [:]
     case let other: return ["error": "no operation \(other)"]
     }
@@ -109,15 +110,20 @@ enum Keychain {
 
 /// NOTIFICATIONS: asked for once, shown even while the app is open
 final class Notifications: NSObject, UNUserNotificationCenterDelegate {
-  private static let shared = Notifications()
-  static func post(_ title: String, _ body: String, _ after: Double) -> Bool {
+  static let shared = Notifications()
+  /// the person asked, once: whether they allow notifications
+  static func allowed() -> Bool {
     let center = UNUserNotificationCenter.current()
     center.delegate = shared
     let asked = DispatchSemaphore(value: 0)
     var allowed = false
     center.requestAuthorization(options: [.alert, .sound]) { ok, _ in allowed = ok; asked.signal() }
     asked.wait()
-    guard allowed else { return false }
+    return allowed
+  }
+  static func post(_ title: String, _ body: String, _ after: Double) -> Bool {
+    let center = UNUserNotificationCenter.current()
+    guard allowed() else { return false }
     let content = UNMutableNotificationContent()
     content.title = title; content.body = body; content.sound = .default
     let trigger = after > 0 ? UNTimeIntervalNotificationTrigger(timeInterval: after, repeats: false) : nil
@@ -152,3 +158,37 @@ final class ScalaThread: Thread {
     }
   }
 }
+
+#if canImport(UIKit)
+/// THE PHONE'S ADDRESS FOR NOTIFICATIONS: APNs' device token, by the app's delegate (`OkayFacesAppDelegate`) — the
+/// app needs `aps-environment` (a capability of its team)
+enum Pushes {
+  nonisolated(unsafe) static var waiting: ((String?) -> Void)?
+  static func token() -> String? {
+    guard Notifications.allowed() else { return nil }
+    let done = DispatchSemaphore(value: 0)
+    var token: String?
+    waiting = { token = $0; done.signal() }
+    DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
+    _ = done.wait(timeout: .now() + 15)
+    waiting = nil
+    return token
+  }
+}
+
+/// THE APP'S DELEGATE, for what only a delegate is told — the device token for notifications. A shell adopts it:
+/// `@UIApplicationDelegateAdaptor(OkayFacesAppDelegate.self) var delegate`
+public final class OkayFacesAppDelegate: NSObject, UIApplicationDelegate {
+  public func application(_ app: UIApplication, didFinishLaunchingWithOptions options:
+    [UIApplication.LaunchOptionsKey: Any]? = nil) -> Bool {
+    UNUserNotificationCenter.current().delegate = Notifications.shared
+    return true
+  }
+  public func application(_ app: UIApplication, didRegisterForRemoteNotificationsWithDeviceToken token: Data) {
+    Pushes.waiting?(token.map { String(format: "%02x", $0) }.joined())
+  }
+  public func application(_ app: UIApplication, didFailToRegisterForRemoteNotificationsWithError error: Error) {
+    Pushes.waiting?(nil)
+  }
+}
+#endif

@@ -82,6 +82,7 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
     "share" -> JSONObject().put("ok", share(op.str("text") ?: "", op.str("url")))
     "verify" -> JSONObject().put("ok", verify(op.str("reason") ?: ""))
     "language" -> JSONObject().put("value", java.util.Locale.getDefault().toLanguageTag())
+    "push" -> fcmToken()?.let { JSONObject().put("value", "fcm:$it") } ?: JSONObject()
     "identity" -> (if (op.str("provider") == "google") google(op.str("client") ?: "") else null)
       ?.let { JSONObject().put("value", it) } ?: JSONObject()
     else -> JSONObject().put("error", "no operation ${op.str("op")}")
@@ -198,6 +199,17 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
         })
     }
   } ?: false
+
+  /** THE PHONE'S ADDRESS FOR NOTIFICATIONS: FCM's token, the person asked to allow them first; none without the app's
+   * Firebase configuration (`google-services.json`) */
+  private fun fcmToken(): String? {
+    if (com.google.firebase.FirebaseApp.getApps(context).isEmpty()) return null
+    if (Build.VERSION.SDK_INT >= 33 && !allowed(Manifest.permission.POST_NOTIFICATIONS)) return null
+    return await<String?> { done ->
+      com.google.firebase.messaging.FirebaseMessaging.getInstance().token
+        .addOnCompleteListener { t -> done(if (t.isSuccessful) t.result else null) }
+    }
+  }
 
   /** GOOGLE'S SIGN-IN: an account on the phone chosen, its ID token for the app's web client `client` */
   private fun google(client: String): String? {

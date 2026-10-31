@@ -92,6 +92,27 @@ object Accounts {
       post(b, "/auth/out", Json.Obj.empty, Some(t)))).flatMap(_ =>
       hide[P](sessionKey, None).flatMap(_ => hide[P](whoKey, None)))
 
+  /** NOTIFICATIONS TO THIS PHONE: its address registered for the person signed in; whether it was */
+  def enablePush(b: Backend): Boolean ! P =
+    session.flatMap {
+      case None => pure[Boolean, P](false)
+      case Some(s) => pushToken[P].flatMap {
+          case Some(t) if t.contains(':') =>
+            val (platform, token) = (t.takeWhile(_ != ':'), t.dropWhile(_ != ':').drop(1))
+            post(b, "/push/device", Json.obj("platform" -> Json.Str(platform), "token" -> Json.Str(token)), Some(s))
+              .map(_.ok)
+          case _ => pure[Boolean, P](false)
+        }
+    }
+
+  /** a notification to the person's phones, this one among them: how many the services took */
+  def notifyMine(b: Backend, title: String, body: String): Int ! P =
+    session.flatMap {
+      case None => pure[Int, P](0)
+      case Some(s) => post(b, "/push", Json.obj("title" -> Json.Str(title), "body" -> Json.Str(body)), Some(s))
+          .map(r => Descent.parse(r.body).toOption.flatMap(field(_, "sent")).flatMap(_.toIntOption).getOrElse(0))
+    }
+
   private def url(b: Backend, key: String): String =
     b.url.stripSuffix("/") + "/shared/" + java.net.URLEncoder.encode(key, "UTF-8")
 

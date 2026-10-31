@@ -27,6 +27,8 @@ dependencies {
   implementation("androidx.credentials:credentials:1.5.0")
   implementation("androidx.credentials:credentials-play-services-auth:1.5.0")
   implementation("com.google.android.libraries.identity.googleid:googleid:1.1.1")
+  // notifications by FCM, for `Device.PushToken`: idle until the app has its Firebase configuration
+  implementation("com.google.firebase:firebase-messaging:24.1.1")
 }
 
 /** THE FACE AS A RELEASE: io.github.okay-effects:okay-faces-android, an AAR with its POM, written into build/repo —

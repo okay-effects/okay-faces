@@ -200,6 +200,21 @@ Checked across platforms: the iPhone's `testSync` signs in to `wrangler dev` (th
 note; Android's `syncFromTheIphone` signs in as the same person (10.0.2.2:8790) and finds it. The simulator's app is
 signed to run here (ad hoc): an unsigned app's keychain refuses, and a session lives there.
 
+## Push (2026-10-31)
+
+Asked: «Push-уведомления нужны». The phone's address is `Device.PushToken` — `apns:<token>` (the app's delegate
+`OkayFacesAppDelegate` told it, the app's `aps-environment` entitlement), `fcm:<token>` (Firebase Messaging, once the
+app has its `google-services.json`) — the person asked to allow notifications first. `Accounts.enablePush` registers
+it for the person signed in; `Accounts.notifyMine(title, body)` asks the backend (okay-serverless' accounts, its
+specs "Push") to notify the person's phones; the app's server notifies anyone by its secret. A notification arriving
+while the app is open shows over it (iOS: the notification centre's delegate; Android: `OkayMessages`).
+
+Checked: on the simulator the app registers a real APNs token and the backend keeps it (`testPushRegistration`); a
+notification put into the simulator from outside (`xcrun simctl push`, as APNs delivers) shows over the app
+(`testReceivesPush`, the host pushing while it waits). On Android, without a Firebase configuration, the app says no
+phone takes notifications (`pushWithoutFirebase`). Sending for real needs the operator's APNs key (`.p8`, a paid team)
+and a Firebase project (a service account) — the backend's secrets.
+
 ## Size and start (measured 2026-10-31)
 
 | | iPhone (Release, arm64) | Android (Pixel 8 emulator, Android 35) |

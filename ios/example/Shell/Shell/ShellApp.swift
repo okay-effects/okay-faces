@@ -5,6 +5,8 @@ import OkayFaces
 
 @main
 struct ShellApp: App {
+  /// what only an app's delegate is told: the device token for notifications
+  @UIApplicationDelegateAdaptor(OkayFacesAppDelegate.self) var delegate
   init() {
     // `-reset YES`: what the app kept forgotten first — a test starts from nothing
     if UserDefaults.standard.bool(forKey: "reset") {

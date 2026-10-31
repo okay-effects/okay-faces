@@ -46,6 +46,10 @@ object Device {
    * phone, for the app's web client `client`): the identity token the issuer signed, for a backend to check; none
    * when the person did not, or the phone cannot */
   final case class Identity[X](provider: String, client: String, answer: Option[String] => X) extends Device[X]
+  /** THE PHONE'S ADDRESS FOR NOTIFICATIONS: `apns:<token>` on an iPhone, `fcm:<token>` on Android — the person asked
+   * to allow notifications first; none when they did not, or the app has no service (APNs' entitlement, Firebase's
+   * configuration) */
+  final case class PushToken[X](answer: Option[String] => X) extends Device[X]
   /** the person's language, as the phone is set: a code (`en`, `ru-RU`, `pl`) */
   final case class Language[X](answer: String => X) extends Device[X]
 
@@ -87,6 +91,7 @@ object Device {
         u.map(x => "url" -> Json.Str(x)))
     case Verify(r, _) => Json.obj("op" -> Json.Str("verify"), "reason" -> Json.Str(r))
     case Language(_) => Json.obj("op" -> Json.Str("language"))
+    case PushToken(_) => Json.obj("op" -> Json.Str("push"))
     case Identity(p, c, _) => Json.obj("op" -> Json.Str("identity"), "provider" -> Json.Str(p), "client" -> Json.Str(c))
   }
   private def number(j: Json, k: String): Option[Double] = field(j, k).collect { case Json.Num(n) => n.toDouble }
@@ -115,6 +120,7 @@ object Device {
     case Share(_, _, k) => k(flag(j, "ok"))
     case Verify(_, k) => k(flag(j, "ok"))
     case Language(k) => k(text(j, "value").getOrElse("en"))
+    case PushToken(k) => k(text(j, "value"))
     case Identity(_, _, k) => k(text(j, "value"))
   }
 
@@ -123,7 +129,7 @@ object Device {
   final class Memory(network: (String, String, String) => Reply = (_, u, _) => Reply(404, Map.empty, u),
     clock: () => Long = () => System.currentTimeMillis(), val photo: Option[String] = None,
     val place: Option[Place] = None, val person: Boolean = true, val language: String = "en",
-    val identity: Map[String, String] = Map.empty) extends Port {
+    val identity: Map[String, String] = Map.empty, val push: Option[String] = None) extends Port {
     val shared = scala.collection.mutable.ListBuffer.empty[String]
     /** the headers of the request the network is asked now — for a network that sends them on */
     @volatile var asking: List[(String, String)] = Nil
@@ -160,6 +166,7 @@ object Device {
         case "share" => shared += text(j, "text").getOrElse(""); Json.obj("ok" -> Json.Bool(true))
         case "verify" => Json.obj("ok" -> Json.Bool(person))
         case "language" => Json.obj("value" -> Json.Str(language))
+        case "push" => push.fold[Json](Json.Obj.empty)(t => Json.obj("value" -> Json.Str(t)))
         case "identity" => identity.get(text(j, "provider").getOrElse(""))
             .fold[Json](Json.Obj.empty)(t => Json.obj("value" -> Json.Str(t)))
         case other => Json.obj("error" -> Json.Str(s"no operation $other"))
@@ -211,6 +218,9 @@ class DeviceWords[F <: Effects with Singleton](implicit val fx: F) {
   /** the identity token of the phone's sign-in with `provider` (`apple`, `google`) */
   def identityToken[R[_]](provider: String, client: String = "")(implicit in: In[Device, R]): Option[String] ! R =
     perform[Device].apply[R, Option[String]](Identity[Option[String]](provider, client, t => t))
+  /** the phone's address for notifications: `apns:…`, `fcm:…` */
+  def pushToken[R[_]](implicit in: In[Device, R]): Option[String] ! R =
+    perform[Device].apply[R, Option[String]](PushToken[Option[String]](t => t))
   /** the person's language, as the phone is set */
   def language[R[_]](implicit in: In[Device, R]): String ! R =
     perform[Device].apply[R, String](Language[String](l => l))

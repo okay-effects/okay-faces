@@ -4,5 +4,7 @@ import OkayFaces
 
 @main
 struct CounterApp: App {
+  /// what only an app's delegate is told: the device token for notifications
+  @UIApplicationDelegateAdaptor(OkayFacesAppDelegate.self) var delegate
   var body: some Scene { WindowGroup { OkayFacesView(app: "app.CounterApp") } }
 }

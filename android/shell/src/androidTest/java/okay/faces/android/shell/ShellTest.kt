@@ -191,4 +191,23 @@ class ShellTest {
     waitText("From the iPhone", 15000)
     shot("sync-3-android")
   }
+
+  /** NOTIFICATIONS, Android's side: signed in, "Notify my other phones" answered — no phone of the person's takes
+   * them here, the shell having no Firebase configuration (an app with one registers its FCM token) */
+  @Test fun pushWithoutFirebase() {
+    scenario?.close()
+    val i = Intent(instrumentation.targetContext, MainActivity::class.java)
+      .putExtra("app", "okay.faces.mobile.example.NotesApp").putExtra("reset", true)
+      .putExtra("cloud", "http://10.0.2.2:8790")
+    scenario = ActivityScenario.launch(i)
+    waitTag("act-sync"); tap("act-sync")
+    waitTag("field-email"); type("field-email", "android-push@example.org"); tap("act-email")
+    waitText("A test server's code", 15000)
+    val told = rule.onAllNodesWithText("A test server's code", substring = true).fetchSemanticsNodes().first()
+    type("field-code", told.config[androidx.compose.ui.semantics.SemanticsProperties.Text].joinToString("")
+      .takeLast(6))
+    tap("act-code")
+    waitTag("act-notify", 15000); tap("act-notify")
+    waitText("No phone of yours takes notifications yet.", 15000)
+  }
 }

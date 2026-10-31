@@ -14,6 +14,11 @@ targets:
     platform: iOS
     sources: [Shell]
     # the Info.plist generated, and beside it: plain HTTP to this Mac's own servers (a local backend in a test)
+    # notifications by APNs (development): the device token the app registers for
+    entitlements:
+      path: Shell/Shell.entitlements
+      properties:
+        aps-environment: development
     info:
       path: Shell/Info.plist
       properties:

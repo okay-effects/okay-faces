@@ -22,7 +22,7 @@ object Notes {
   enum Move {
     case Add(text: String)
     case Open(index: Int)
-    case Clear, GitHub, Remind, Site, Here, Unlock, Sync, SignOut
+    case Clear, GitHub, Remind, Site, Here, Unlock, Sync, SignOut, NotifyOthers
   }
   val note: Shape[String] = Shape.text.described("Note", Some("what to remember"))
   val add = Action[String, Move]("add", "Add", Shape.record(Shape.field("text", note))(t => t)(t => t))(Move.Add(_))
@@ -83,7 +83,8 @@ object Notes {
         Action.plain[Move]("unlock", "Unlock")(Move.Unlock)) ++
       (c.backend.fold(Nil)(_ =>
         if c.who.isEmpty then List(Action.plain[Move]("sync", "Sync across my phones")(Move.Sync))
-        else List(Action.plain[Move]("signout", "Sign out")(Move.SignOut)))) ++
+        else List(Action.plain[Move]("notify", "Notify my other phones")(Move.NotifyOthers),
+          Action.plain[Move]("signout", "Sign out")(Move.SignOut)))) ++
       (if notes.nonEmpty then List(opening, Action.plain[Move]("clear", "Clear")(Move.Clear)) else Nil),
       okay.faces.Step.Options.returnable).flatMap {
       case Move.Open(i) => page(notes, i)
@@ -116,9 +117,14 @@ object Notes {
             val theirs = lines(there)
             val both = theirs ++ notes.filterNot(theirs.contains)
             given Ctx = c.copy(who = w)
-            keep(both).flatMap(_ => turn(both))
+            // and this phone told what the person's other phones say
+            keep(both).flatMap(_ => Accounts.enablePush(b)).flatMap(_ => turn(both))
           })
         })
+      case Move.NotifyOthers => c.backend.fold(turn(notes))(b =>
+          Accounts.notifyMine(b, "Notes", notes.lastOption.fold("Nothing kept yet.")(n => s"Latest: $n")).flatMap(n =>
+            show[P](if n > 0 then View.info(s"Sent to $n of your phones.")
+              else View.warning("No phone of yours takes notifications yet."))).flatMap(_ => turn(notes)))
       case Move.SignOut => c.backend.fold(turn(notes))(b =>
           Accounts.signOut(b).flatMap(_ => turn(notes)(using c.copy(who = None))))
     }
