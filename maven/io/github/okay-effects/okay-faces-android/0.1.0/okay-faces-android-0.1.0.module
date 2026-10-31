@@ -68,11 +68,11 @@
         {
           "name": "okay-faces-android-0.1.0.aar",
           "url": "okay-faces-android-0.1.0.aar",
-          "size": 232144,
-          "sha512": "79a6e8394688917fe9964b68c34d61851a770d9d494318c3b6e4111e593c3c05c8abde981a2401d24621a3b0a95a3e2f73a892ed532e2c80e21b142a2702073e",
-          "sha256": "7ae445a01a83256fd50978daca846fd77535a7a2f24bbb146a7c745edfc6bac9",
-          "sha1": "490d50c99c800b34dcaa615732de7c0459399933",
-          "md5": "17c2db96602dd3b4fc0d33fc37508302"
+          "size": 232526,
+          "sha512": "ba949924d4d16567f17cce37a80f37a76da5f6b3653a4cf6bd22a2a799accc544ed587381fcc744b13a7a5cc897ca53f151dfdf4bbd683b46dd1fac30ba3c4f2",
+          "sha256": "11e27d208de72afd6c8b3574acc0897171a8dbd73a3af62b32ad3f589f14cc55",
+          "sha1": "b5ea27e43ed19bc55ddc08ef25e6dda202be9f14",
+          "md5": "496052d742bee28f38ae1dd455f9eed0"
         }
       ]
     },
@@ -134,11 +134,11 @@
         {
           "name": "okay-faces-android-0.1.0.aar",
           "url": "okay-faces-android-0.1.0.aar",
-          "size": 232144,
-          "sha512": "79a6e8394688917fe9964b68c34d61851a770d9d494318c3b6e4111e593c3c05c8abde981a2401d24621a3b0a95a3e2f73a892ed532e2c80e21b142a2702073e",
-          "sha256": "7ae445a01a83256fd50978daca846fd77535a7a2f24bbb146a7c745edfc6bac9",
-          "sha1": "490d50c99c800b34dcaa615732de7c0459399933",
-          "md5": "17c2db96602dd3b4fc0d33fc37508302"
+          "size": 232526,
+          "sha512": "ba949924d4d16567f17cce37a80f37a76da5f6b3653a4cf6bd22a2a799accc544ed587381fcc744b13a7a5cc897ca53f151dfdf4bbd683b46dd1fac30ba3c4f2",
+          "sha256": "11e27d208de72afd6c8b3574acc0897171a8dbd73a3af62b32ad3f589f14cc55",
+          "sha1": "b5ea27e43ed19bc55ddc08ef25e6dda202be9f14",
+          "md5": "496052d742bee28f38ae1dd455f9eed0"
         }
       ]
     },
