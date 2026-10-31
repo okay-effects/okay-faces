@@ -1,0 +1,166 @@
+{
+  "formatVersion": "1.1",
+  "component": {
+    "group": "io.github.okay-effects",
+    "module": "okay-faces-android",
+    "version": "0.1.0",
+    "attributes": {
+      "org.gradle.status": "release"
+    }
+  },
+  "createdBy": {
+    "gradle": {
+      "version": "8.11.1"
+    }
+  },
+  "variants": [
+    {
+      "name": "releaseVariantReleaseApiPublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-api"
+      },
+      "dependencies": [
+        {
+          "group": "io.github.okay-effects",
+          "module": "okay-faces-mobile_3",
+          "version": {
+            "requires": "0.1.0"
+          }
+        },
+        {
+          "group": "androidx.compose",
+          "module": "compose-bom",
+          "version": {
+            "requires": "2025.04.00"
+          },
+          "attributes": {
+            "org.gradle.category": "platform"
+          },
+          "endorseStrictVersions": true
+        },
+        {
+          "group": "androidx.compose.material3",
+          "module": "material3"
+        },
+        {
+          "group": "androidx.compose.ui",
+          "module": "ui"
+        },
+        {
+          "group": "androidx.activity",
+          "module": "activity-compose",
+          "version": {
+            "requires": "1.10.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.20"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "okay-faces-android-0.1.0.aar",
+          "url": "okay-faces-android-0.1.0.aar",
+          "size": 232144,
+          "sha512": "79a6e8394688917fe9964b68c34d61851a770d9d494318c3b6e4111e593c3c05c8abde981a2401d24621a3b0a95a3e2f73a892ed532e2c80e21b142a2702073e",
+          "sha256": "7ae445a01a83256fd50978daca846fd77535a7a2f24bbb146a7c745edfc6bac9",
+          "sha1": "490d50c99c800b34dcaa615732de7c0459399933",
+          "md5": "17c2db96602dd3b4fc0d33fc37508302"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseRuntimePublication",
+      "attributes": {
+        "org.gradle.category": "library",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.libraryelements": "aar",
+        "org.gradle.usage": "java-runtime"
+      },
+      "dependencies": [
+        {
+          "group": "androidx.compose.material",
+          "module": "material-icons-core"
+        },
+        {
+          "group": "io.github.okay-effects",
+          "module": "okay-faces-mobile_3",
+          "version": {
+            "requires": "0.1.0"
+          }
+        },
+        {
+          "group": "androidx.compose",
+          "module": "compose-bom",
+          "version": {
+            "requires": "2025.04.00"
+          },
+          "attributes": {
+            "org.gradle.category": "platform"
+          },
+          "endorseStrictVersions": true
+        },
+        {
+          "group": "androidx.compose.material3",
+          "module": "material3"
+        },
+        {
+          "group": "androidx.compose.ui",
+          "module": "ui"
+        },
+        {
+          "group": "androidx.activity",
+          "module": "activity-compose",
+          "version": {
+            "requires": "1.10.1"
+          }
+        },
+        {
+          "group": "org.jetbrains.kotlin",
+          "module": "kotlin-stdlib",
+          "version": {
+            "requires": "2.1.20"
+          }
+        }
+      ],
+      "files": [
+        {
+          "name": "okay-faces-android-0.1.0.aar",
+          "url": "okay-faces-android-0.1.0.aar",
+          "size": 232144,
+          "sha512": "79a6e8394688917fe9964b68c34d61851a770d9d494318c3b6e4111e593c3c05c8abde981a2401d24621a3b0a95a3e2f73a892ed532e2c80e21b142a2702073e",
+          "sha256": "7ae445a01a83256fd50978daca846fd77535a7a2f24bbb146a7c745edfc6bac9",
+          "sha1": "490d50c99c800b34dcaa615732de7c0459399933",
+          "md5": "17c2db96602dd3b4fc0d33fc37508302"
+        }
+      ]
+    },
+    {
+      "name": "releaseVariantReleaseSourcePublication",
+      "attributes": {
+        "org.gradle.category": "documentation",
+        "org.gradle.dependency.bundling": "external",
+        "org.gradle.docstype": "sources",
+        "org.gradle.usage": "java-runtime"
+      },
+      "files": [
+        {
+          "name": "okay-faces-android-0.1.0-sources.jar",
+          "url": "okay-faces-android-0.1.0-sources.jar",
+          "size": 16028,
+          "sha512": "cfc13e2ede2d22c5a6f48404dca5b5d6ac828b7a53a6fab1f89964d2baf2175f4d69d8b288fd9fa6d9e46a8dc00af0ed92eaad8aad52dedae0ff58e21796a0b8",
+          "sha256": "39e0fc23546be035700f19b337db2850a585ad13e3b828c916d32c0a28b74a12",
+          "sha1": "9b0af7152c874b06531631bc3606e0518d105bc6",
+          "md5": "f66069e15ec1496438dc6331f80a3f9f"
+        }
+      ]
+    }
+  ]
+}
