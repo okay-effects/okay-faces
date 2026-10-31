@@ -34,7 +34,7 @@
           "group": "androidx.compose",
           "module": "compose-bom",
           "version": {
-            "requires": "2025.04.00"
+            "requires": "2025.05.00"
           },
           "attributes": {
             "org.gradle.category": "platform"
@@ -68,11 +68,11 @@
         {
           "name": "okay-faces-android-0.1.0.aar",
           "url": "okay-faces-android-0.1.0.aar",
-          "size": 246962,
-          "sha512": "f1c5315ab76ec5decb0faad0cd33e97e3d4b19668ffb0ab29e1d7bc9d0bc5ff0a44ef42142af74959059c157d4da7e69ea9dc7972f517c7637247ffc589e31a0",
-          "sha256": "f58ed2c9ad67a2342fef6b12342803e6ba0c82291619c5d152095a8933f990c7",
-          "sha1": "93aff6c932ca6f82c63a6f841b14cdabc39bb9e7",
-          "md5": "1cc251b35d072da4a169688e70d090ab"
+          "size": 248685,
+          "sha512": "a385dbb482383f3b65e36823839bad741f14d458b0401aaf3fd7e086fa5af8eeb2f5faf82229abee2ef74cb4c8dd0d923e89e22faa5f1718ed7999b2298be82a",
+          "sha256": "6bbb78e6f3aedd2eb9d72f493971df18ba3ed154d54561e5824a4bb6195f18df",
+          "sha1": "3e7663ce5d822b955384d4598ea2ae379976d5f0",
+          "md5": "ccc2f0c831104c7334c43b2d7c151b6e"
         }
       ]
     },
@@ -100,7 +100,7 @@
           "group": "androidx.compose",
           "module": "compose-bom",
           "version": {
-            "requires": "2025.04.00"
+            "requires": "2025.05.00"
           },
           "attributes": {
             "org.gradle.category": "platform"
@@ -134,11 +134,11 @@
         {
           "name": "okay-faces-android-0.1.0.aar",
           "url": "okay-faces-android-0.1.0.aar",
-          "size": 246962,
-          "sha512": "f1c5315ab76ec5decb0faad0cd33e97e3d4b19668ffb0ab29e1d7bc9d0bc5ff0a44ef42142af74959059c157d4da7e69ea9dc7972f517c7637247ffc589e31a0",
-          "sha256": "f58ed2c9ad67a2342fef6b12342803e6ba0c82291619c5d152095a8933f990c7",
-          "sha1": "93aff6c932ca6f82c63a6f841b14cdabc39bb9e7",
-          "md5": "1cc251b35d072da4a169688e70d090ab"
+          "size": 248685,
+          "sha512": "a385dbb482383f3b65e36823839bad741f14d458b0401aaf3fd7e086fa5af8eeb2f5faf82229abee2ef74cb4c8dd0d923e89e22faa5f1718ed7999b2298be82a",
+          "sha256": "6bbb78e6f3aedd2eb9d72f493971df18ba3ed154d54561e5824a4bb6195f18df",
+          "sha1": "3e7663ce5d822b955384d4598ea2ae379976d5f0",
+          "md5": "ccc2f0c831104c7334c43b2d7c151b6e"
         }
       ]
     },
@@ -154,11 +154,11 @@
         {
           "name": "okay-faces-android-0.1.0-sources.jar",
           "url": "okay-faces-android-0.1.0-sources.jar",
-          "size": 17966,
-          "sha512": "ac74e3057c92121130256600e1832b59ef383d230b393d67af2fef7e80a80273b1b9553f63025286990d4f9b1d04e5382bc8b5bdfaabb8648a8ad14e70a0d65d",
-          "sha256": "4bdf1c621b7e13c31a3c332ab975a07b12757ed3c290ac5c0a7a19d3ca6a46c5",
-          "sha1": "71839887edef301d0a4f7bf20b88685c681e6961",
-          "md5": "99994ff70767984862044fbadc122ada"
+          "size": 18149,
+          "sha512": "8f89779b18ff24e544e32ef43f4e98aa251c18a77c77bd9118bb0d60672bf649bbd4378231e6015c562468372a05f1e400b9af46e5022b91a826e7ffc6b6a346",
+          "sha256": "f0d8671f408c22b8cff634d8be6d30171315272caca002cdfb81a419df536a38",
+          "sha1": "11f0f0a76f3bca0c51158a3cb28ee784068eef93",
+          "md5": "aec27436838f7e2964141799d4908f3d"
         }
       ]
     }
