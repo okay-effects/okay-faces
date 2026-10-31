@@ -3,6 +3,6 @@ import SwiftUI
 import OkayFaces
 
 @main
-struct App: SwiftUI.App {
+struct CounterApp: App {
   var body: some Scene { WindowGroup { OkayFacesView(app: "app.CounterApp") } }
 }

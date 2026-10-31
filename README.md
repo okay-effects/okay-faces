@@ -134,6 +134,9 @@ xcodebuild -project Shell.xcodeproj -scheme Shell -destination 'platform=iOS Sim
 android/test.sh                                                    # Android: built, played on the emulator
 ```
 
+A phone app of one's own starts from [`template/`](template/README.md): a Scala program, its iPhone shell and its
+Android shell, on the released artifacts alone.
+
 The first application is [verity](https://github.com/okay-effects/verity), a keeper of one's personal data, on every
 face above; [okay-store](https://github.com/okay-effects/okay-store) describes its types for them.
 

@@ -1,6 +1,7 @@
 # THE APP ON AN iPHONE: `ios/build.sh` (the app's Scala into lib/App.xcframework), then `xcodegen` here and open
-# App.xcodeproj — choose your team under Signing to run on your own phone
-name: App
+# Counter.xcodeproj — choose your team under Signing to run on your own phone. Not `App`: a module of that name
+# hides SwiftUI's `App`, and Xcode then links SwiftUICore by itself — the app ends at launch on iOS 18
+name: Counter
 options:
   bundleIdPrefix: com.example
   deploymentTarget:
@@ -10,7 +11,7 @@ packages:
     url: https://github.com/okay-effects/okay-faces
     from: 0.1.0
 targets:
-  App:
+  Counter:
     type: application
     platform: iOS
     sources: [App]
