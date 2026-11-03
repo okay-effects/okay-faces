@@ -28,6 +28,18 @@ class EventsSuite extends munit.FunSuite {
     assertEquals(played, Played.Finished(List(View.text("waiting for the mail"), View.text("3 letters")), "got 3"))
     assertEquals(bus.listening, 0)
   }
+  test("an event at once, as the step listens: the step after it shown, its actions with it") {
+    // a phone's events come between steps: one there already is heard as the next step listens
+    val eager = new Meanwhile[What](k => { k(Arrived(2)); () => () })
+    val program: String ! F =
+      offer[Unit, F](View.text("first"), List(Action.plain[Unit]("go", "Go")(()))).flatMap(_ =>
+        offer[What, F](View.text("waiting for the mail"), List(Action.plain[What]("skip", "Skip")(Skipped)), eager))
+        .flatMap(w => offer[String, F](View.text(s"after $w"), List(Action.plain[String]("done", "Done")("done"))))
+    val session = faces.session[String, Void](steps[String, F, Void](program))
+    assert(run(session.choose(okay.faces.Chosen.plain("go"))).isRight)
+    assertEquals(run(session.shown)._2, View.text("after Arrived(2)"))
+    assertEquals(run(session.actions).map(_.name), List("done"))
+  }
   test("the person first: the choice resumes the step, the event is no longer listened to") {
     val bus = Meanwhile.manual[What]
     val played = play(steps[String, F, Void](waiting(bus)), Script.of(okay.faces.Chosen.plain("skip")))

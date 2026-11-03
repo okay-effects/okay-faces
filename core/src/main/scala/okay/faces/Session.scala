@@ -30,11 +30,17 @@ abstract class Session[F <: Effects with Singleton, A, R[_]](val fx: F, over: Vi
   @volatile var moved: () => Unit = () => ()
   /** told each point the program passes (`Face.Mark`): where it can be taken up again — a host keeps it */
   @volatile var marked: Step.Point => Unit = _ => ()
+  /** the step being settled: an event it hears at once, while it listens, is its own — it is the step about to be
+   * current */
+  private var settling: Option[Step.Waiting[A, M]] = None
   private def settle(s: Step[A, M]): Step[A, M] ! R = s match {
     case Step.Told(view, next) => told = told :+ view; next.flatMap(settle)
     case w: Step.Waiting[A, M] @unchecked =>
       w.options.at.foreach(p => marked(p))
-      w.listen(next => if (step.contains(w) || step.isEmpty) { fired = Some((w, next)); moved() })
+      settling = Some(w)
+      w.listen(next =>
+        if (step.contains(w) || step.isEmpty || settling.contains(w)) { fired = Some((w, next)); moved() })
+      settling = None
       pure[Step[A, M], R](w)
     case other => pure[Step[A, M], R](other)
   }
@@ -43,9 +49,12 @@ abstract class Session[F <: Effects with Singleton, A, R[_]](val fx: F, over: Vi
     case Some((w, next)) if step.contains(w) =>
       fired = None; told = Vector.empty
       next.flatMap(settle).map { s => history = if (w.back) w :: history else history; step = Some(s); s }
+        // an event the new step heard at once: on to the step after it, so what is shown and what can be done are of
+        // one step
+        .flatMap(_ => current)
     case _ => step match {
         case Some(s) => pure[Step[A, M], R](s)
-        case None => first.flatMap(settle).map { s => step = Some(s); s }
+        case None => first.flatMap(settle).map { s => step = Some(s); s }.flatMap(_ => current)
       }
   }
   /** whether the step waits on an event too: a client may ask again later */
