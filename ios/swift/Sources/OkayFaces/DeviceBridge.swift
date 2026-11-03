@@ -42,6 +42,14 @@ enum DeviceBridge {
     case "language": return ["value": Locale.preferredLanguages.first ?? "en"]
     case "push": return Pushes.token().map { ["value": "apns:" + $0] } ?? [:]
     case "identity": return (str(op["provider"]) == "apple" ? AppleID.token() : nil).map { ["value": $0] } ?? [:]
+    case "socket": return Sockets.shared.open(str(op["url"]) ?? "")
+    case "socketSend": return Sockets.shared.send(str(op["id"]) ?? "", str(op["text"]) ?? "")
+    case "socketClose": return Sockets.shared.close(str(op["id"]) ?? "")
+    case "seal": return Sealing.seal(str(op["key"]) ?? "", str(op["aad"]) ?? "", str(op["text"]) ?? "")
+    case "unseal": return Sealing.unseal(str(op["key"]) ?? "", str(op["aad"]) ?? "", str(op["text"]) ?? "")
+    #if canImport(UIKit)
+    case "scan": return Scanner.scan().map { ["value": $0] } ?? [:]
+    #endif
     case let other: return ["error": "no operation \(other)"]
     }
   }

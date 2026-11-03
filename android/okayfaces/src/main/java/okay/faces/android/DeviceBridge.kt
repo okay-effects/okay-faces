@@ -85,6 +85,12 @@ class DeviceBridge private constructor(private val activity: ComponentActivity) 
     "push" -> fcmToken()?.let { JSONObject().put("value", "fcm:$it") } ?: JSONObject()
     "identity" -> (if (op.str("provider") == "google") google(op.str("client") ?: "") else null)
       ?.let { JSONObject().put("value", it) } ?: JSONObject()
+    // AES-GCM by the library's own JVM half (javax.crypto), framed as okay-serverless' Sealer frames it
+    "seal" -> JSONObject().put("value", okay.faces.mobile.Sealing.seal(op.str("key") ?: "", op.str("aad") ?: "",
+      op.str("text") ?: ""))
+    "unseal" -> okay.faces.mobile.Sealing.unseal(op.str("key") ?: "", op.str("aad") ?: "", op.str("text") ?: "")
+      .let { if (it.isDefined) JSONObject().put("value", it.get()) else JSONObject() }
+    // a socket, a scan: not on Android yet (no WebSocket in the platform; a scanner is ML Kit's) — said, not faked
     else -> JSONObject().put("error", "no operation ${op.str("op")}")
   }
 

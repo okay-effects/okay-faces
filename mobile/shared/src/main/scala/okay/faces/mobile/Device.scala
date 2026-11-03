@@ -53,6 +53,22 @@ object Device {
   /** the person's language, as the phone is set: a code (`en`, `ru-RU`, `pl`) */
   final case class Language[X](answer: String => X) extends Device[X]
 
+  /** A SOCKET (a WebSocket) opened to `url`: its id, or why not. What comes on it comes by itself, a device event
+   * (`DeviceEvents`): `{"event": "socket", "id", "text"}`, and `{"event": "closed", "id", "why"}` when it ends */
+  final case class Socket[X](url: String, answer: Either[String, String] => X) extends Device[X]
+  /** a text sent on a socket; whether it went */
+  final case class SocketSend[X](id: String, text: String, answer: Boolean => X) extends Device[X]
+  /** a socket closed */
+  final case class SocketClose[X](id: String, answer: Unit => X) extends Device[X]
+  /** A TEXT SEALED (AES-256-GCM): the key and the result base64url, `aad` the associated data, a random IV — the
+   * result `iv ‖ ciphertext ‖ tag` (okay-serverless' Sealer's frame) */
+  final case class Seal[X](key: String, aad: String, plain: String, answer: String => X) extends Device[X]
+  /** a sealed text opened by the key; none when it does not open (another key, tampered) */
+  final case class Unseal[X](key: String, aad: String, box: String, answer: Option[String] => X)
+    extends Device[X]
+  /** A QR CODE read by the camera: its text, none when the person did not */
+  final case class Scan[X](answer: Option[String] => X) extends Device[X]
+
   /** a place: degrees, and how far off it may be, in metres */
   final case class Place(latitude: Double, longitude: Double, accuracy: Double)
 
@@ -69,7 +85,11 @@ object Device {
    * THE PLATFORM'S SIDE, one call: an operation as JSON in, its answer as JSON out (specs/ios.md has the shapes). The
    * shell's Swift is one (`MobileExports`, through a C function it registers), `memory` another.
    */
-  trait Port { def call(request: Json): Json }
+  trait Port {
+    def call(request: Json): Json
+    /** what the device tells by itself (a socket's text, its closing): whoever listens is given it */
+    def events: DeviceEvents = DeviceEvents.none
+  }
 
   /** an operation as the port reads it */
   def request(op: Device[_]): Json = op match {
@@ -93,6 +113,14 @@ object Device {
     case Language(_) => Json.obj("op" -> Json.Str("language"))
     case PushToken(_) => Json.obj("op" -> Json.Str("push"))
     case Identity(p, c, _) => Json.obj("op" -> Json.Str("identity"), "provider" -> Json.Str(p), "client" -> Json.Str(c))
+    case Socket(u, _) => Json.obj("op" -> Json.Str("socket"), "url" -> Json.Str(u))
+    case SocketSend(i, t, _) => Json.obj("op" -> Json.Str("socketSend"), "id" -> Json.Str(i), "text" -> Json.Str(t))
+    case SocketClose(i, _) => Json.obj("op" -> Json.Str("socketClose"), "id" -> Json.Str(i))
+    case Seal(k, a, t, _) => Json.obj("op" -> Json.Str("seal"), "key" -> Json.Str(k), "aad" -> Json.Str(a),
+        "text" -> Json.Str(t))
+    case Unseal(k, a, t, _) => Json.obj("op" -> Json.Str("unseal"), "key" -> Json.Str(k), "aad" -> Json.Str(a),
+        "text" -> Json.Str(t))
+    case Scan(_) => Json.obj("op" -> Json.Str("scan"))
   }
   private def number(j: Json, k: String): Option[Double] = field(j, k).collect { case Json.Num(n) => n.toDouble }
 
@@ -122,6 +150,12 @@ object Device {
     case Language(k) => k(text(j, "value").getOrElse("en"))
     case PushToken(k) => k(text(j, "value"))
     case Identity(_, _, k) => k(text(j, "value"))
+    case Socket(_, k) => k(text(j, "id").toRight(text(j, "error").getOrElse("the socket did not open")))
+    case SocketSend(_, _, k) => k(flag(j, "ok"))
+    case SocketClose(_, k) => k(())
+    case Seal(_, _, _, k) => k(text(j, "value").getOrElse(""))
+    case Unseal(_, _, _, k) => k(text(j, "value"))
+    case Scan(k) => k(text(j, "value"))
   }
 
   /** A DEVICE IN MEMORY, for a test or a host with no phone: what is kept and hidden in maps, the network a
@@ -129,7 +163,13 @@ object Device {
   final class Memory(network: (String, String, String) => Reply = (_, u, _) => Reply(404, Map.empty, u),
     clock: () => Long = () => System.currentTimeMillis(), val photo: Option[String] = None,
     val place: Option[Place] = None, val person: Boolean = true, val language: String = "en",
-    val identity: Map[String, String] = Map.empty, val push: Option[String] = None) extends Port {
+    val identity: Map[String, String] = Map.empty, val push: Option[String] = None,
+    sockets: (String, String => Unit) => Option[String => Unit] = (_, _) => None,
+    val scanned: Option[String] = None) extends Port {
+    override val events: DeviceEvents = new DeviceEvents
+    /** the sockets open: each its sender, and what to tell when it is closed */
+    private val open = scala.collection.mutable.Map.empty[String, String => Unit]
+    private var opened0 = 0
     val shared = scala.collection.mutable.ListBuffer.empty[String]
     /** the headers of the request the network is asked now — for a network that sends them on */
     @volatile var asking: List[(String, String)] = Nil
@@ -169,16 +209,39 @@ object Device {
         case "push" => push.fold[Json](Json.Obj.empty)(t => Json.obj("value" -> Json.Str(t)))
         case "identity" => identity.get(text(j, "provider").getOrElse(""))
             .fold[Json](Json.Obj.empty)(t => Json.obj("value" -> Json.Str(t)))
+        case "socket" =>
+          opened0 += 1
+          val id = s"s$opened0"
+          sockets(text(j, "url").getOrElse(""), t => events.deliver(Json.obj("event" -> Json.Str("socket"),
+            "id" -> Json.Str(id), "text" -> Json.Str(t)))) match {
+            case None => Json.obj("error" -> Json.Str("the socket did not open"))
+            case Some(send) => open(id) = send; Json.obj("id" -> Json.Str(id))
+          }
+        case "socketSend" => open.get(text(j, "id").getOrElse("")) match {
+            case None => Json.obj("ok" -> Json.Bool(false))
+            case Some(send) => send(text(j, "text").getOrElse("")); Json.obj("ok" -> Json.Bool(true))
+          }
+        case "socketClose" =>
+          val id = text(j, "id").getOrElse("")
+          if (open.remove(id).isDefined)
+            events.deliver(Json.obj("event" -> Json.Str("closed"), "id" -> Json.Str(id), "why" -> Json.Str("closed")))
+          Json.Obj.empty
+        case "seal" => Json.obj("value" -> Json.Str(Sealing.seal(text(j, "key").getOrElse(""),
+            text(j, "aad").getOrElse(""), text(j, "text").getOrElse(""))))
+        case "unseal" => Sealing.unseal(text(j, "key").getOrElse(""), text(j, "aad").getOrElse(""),
+            text(j, "text").getOrElse("")).fold[Json](Json.Obj.empty)(v => Json.obj("value" -> Json.Str(v)))
+        case "scan" => scanned.fold[Json](Json.Obj.empty)(v => Json.obj("value" -> Json.Str(v)))
         case other => Json.obj("error" -> Json.Str(s"no operation $other"))
       }
     }
   }
   def memory(): Memory = new Memory()
 
-  /** a port over text: what crosses C is a string each way */
-  def textual(through: String => String): Port = new Port {
+  /** a port over text: what crosses C is a string each way; what the device tells by itself, to `told` */
+  def textual(through: String => String, told: DeviceEvents = DeviceEvents.none): Port = new Port {
     def call(request: Json): Json =
       Descent.parse(through(Json.print(request))).getOrElse(Json.obj("error" -> Json.Str("not JSON")))
+    override def events: DeviceEvents = told
   }
 }
 
@@ -229,3 +292,22 @@ class DeviceWords[F <: Effects with Singleton](implicit val fx: F) {
 }
 
 object phone extends DeviceWords[Tagless.type]()(Tagless)
+
+/** WHAT THE DEVICE TELLS BY ITSELF — a socket's text, its closing: each event given to everyone listening, in the
+ * order it came. The shell tells it through `okay_faces_device_event`, on the library's thread */
+final class DeviceEvents {
+  private var listeners = Vector.empty[(Int, Json => Unit)]
+  private var next = 0
+  /** `f` given every event from now; the way to stop it */
+  def listen(f: Json => Unit): () => Unit = synchronized {
+    next += 1
+    val id = next
+    listeners :+= ((id, f))
+    () => synchronized { listeners = listeners.filterNot(_._1 == id) }
+  }
+  def deliver(event: Json): Unit = { val ls = synchronized(listeners); ls.foreach(_._2(event)) }
+}
+object DeviceEvents {
+  /** a device that tells nothing */
+  val none: DeviceEvents = new DeviceEvents
+}

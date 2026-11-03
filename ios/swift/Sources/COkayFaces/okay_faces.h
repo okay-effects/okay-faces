@@ -12,6 +12,9 @@ void okay_faces_on_moved(void (*moved)(void));  // told when an event moved the 
 // the phone, as the shell answers it: an operation as JSON, its answer as JSON made by malloc (strdup) — freed by the
 // library; called on the thread the shell called the library on, never to be the main one (specs/ios.md)
 void okay_faces_on_device(char* (*device)(const char* request));
+// what the phone tells by itself — a socket's text {"event": "socket", "id", "text"}, its closing {"event": "closed",
+// "id", "why"} — given to the library on its own thread
+void okay_faces_device_event(const char* event);
 void okay_faces_free(char* s);                  // every string returned is the caller's, freed here
 
 #endif

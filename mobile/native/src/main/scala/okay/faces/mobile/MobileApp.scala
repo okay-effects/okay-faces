@@ -29,7 +29,10 @@ object MobileExports {
 
   /** THE PHONE, through the shell: an operation as JSON to the function it registered, the answer back — a string
    * the shell made with `malloc` (`strdup`), freed here. No shell registered: every operation an error */
-  val device: Device.Port = Device.textual { request =>
+  /** what the phone tells by itself (`okay_faces_device_event`): a socket's text, its closing */
+  val events: DeviceEvents = new DeviceEvents
+
+  val device: Device.Port = Device.textual({ request =>
     devices match {
       case None => """{"error": "no device: the shell registers one with okay_faces_on_device"}"""
       case Some(f) => Zone.acquire { implicit z =>
@@ -38,7 +41,7 @@ object MobileExports {
           else { val s = fromCString(answer); stdlib.free(answer.asInstanceOf[Ptr[Byte]]); s }
         }
     }
-  }
+  }, events)
 
   /** a Scala string as C's: UTF-8, ended by a zero, in memory of `malloc` */
   def out(s: String): CString = {
@@ -82,6 +85,10 @@ object MobileExports {
   def okayFacesOnMoved(f: CFuncPtr0[Unit]): Unit = moved = Option(f)
   @exported("okay_faces_on_device")
   def okayFacesOnDevice(f: CFuncPtr1[CString, CString]): Unit = devices = Option(f)
+  /** an event of the phone's (a socket's text, its closing), given on the library's thread */
+  @exported("okay_faces_device_event")
+  def okayFacesDeviceEvent(event: CString): Unit =
+    okay.effects.json.Descent.parse(fromCString(event)).foreach(events.deliver)
   @exported("okay_faces_free")
   def okayFacesFree(s: CString): Unit = stdlib.free(s.asInstanceOf[Ptr[Byte]])
 }

@@ -226,6 +226,23 @@ On Android the release is shrunk by R8 with okay-faces' rules, shipped in the AA
 `MobileApp` kept, being opened by name). The shrunk app is played from outside — `android/release.py`, adb and
 uiautomator, by what the screen says — since the instrumentation's own libraries are shrunk away with the app.
 
+## Sockets, sealing, scanning (2026-11-03)
+
+Asked for okay-remote on an iPhone (its specs/ios.md): a phone that reaches a daemon through okay-serverless' sealed
+room needs a socket, AES-GCM and a QR code read.
+
+- `Socket(url)` opens a WebSocket: its id, or why not; `SocketSend(id, text)`, `SocketClose(id)`. What comes on it
+  comes BY ITSELF, as a device event — `{"event": "socket", "id", "text"}`, and `{"event": "closed", "id", "why"}` when
+  it ends — given to the library by `okay_faces_device_event(const char*)` on its own thread; a port's `events`
+  (`DeviceEvents`) gives it to whoever listens. The shell keeps the line alive (a ping every 25 s).
+- `Seal(key, aad, text)`, `Unseal(key, aad, text)`: AES-256-GCM, the key and the result base64url, the result
+  `iv ‖ ciphertext ‖ tag` — okay-serverless' Sealer's frame, so a phone and a host open each other's.
+- `Scan`: a QR code's text, read by the camera (AVFoundation; the system's close button to give up).
+- iOS: `Sockets.swift` (URLSessionWebSocketTask, CryptoKit, the reader). `Device.Memory`: sockets by a function
+  (a test's room), sealing by JCA (`Sealing`, the JVM half; none on Native). Android: `seal`, `unseal` by that
+  `Sealing`; `socket` and `scan` answered with an error — no WebSocket in the platform, the scanner is ML Kit's.
+- Checked: `DevicePowersSuite` (JVM); the Swift package built for the simulator.
+
 ## Open
 
 - Pictures are drawn by SwiftUI's `Canvas`; a QR code is a picture, so it comes for free.
