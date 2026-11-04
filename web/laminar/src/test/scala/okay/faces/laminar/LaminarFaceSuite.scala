@@ -188,6 +188,25 @@ class LaminarFaceSuite extends munit.FunSuite {
       ended.future.map { a => assertEquals(a, "4"); assert(root.innerHTML.contains("got 4"), root.innerHTML) }
     }
   }
+  test("an event heard is listened to no more while the rest still works (specs/face-core.md, Open)") {
+    type AF[X] = Sum[Async, Face, X]
+    val asynchrony = new okay.effects.async.Asynchrony[Machine.type]()(Machine, queue)
+    val bus = okay.faces.Meanwhile.manual[Int]
+    var during = -1
+    def program: String ! AF = offer[Int, AF](View.text("waiting"), List(Action.plain[Int]("skip", "Skip")(0)),
+      bus.meanwhile).flatMap(n => asynchrony.sleep[AF](5).flatMap { _ =>
+        during = bus.listening
+        show[AF](View.text(s"got $n")).map(_ => s"$n")
+      })
+    val ended = Promise[String]()
+    mounted(face.elementAsync(steps[String, AF, Async](program), (a: String) => ended.success(a)))
+    Future(()).flatMap { _ =>
+      assertEquals(bus.listening, 1)
+      bus.fire(3)
+      assertEquals(bus.listening, 0, "heard: listened to no more at once")
+      ended.future.map { a => assertEquals(a, "3"); assertEquals(during, 0) }
+    }
+  }
   test("a list of records in a form: items added and removed by buttons, submitted as the records") {
     final case class Line(what: String, qty: Int)
     final case class Order(who: String, lines: List[Line])

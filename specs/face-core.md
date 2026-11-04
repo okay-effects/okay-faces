@@ -612,6 +612,10 @@ released the same day, on its own Pages repository (RELEASING.md).
   says `listening` so the remote face asks again — and the terminal, whose line read blocks, does not: a program for
   every face gives the person an action too. The test face has `Fire(trigger)` in its script. DECIDED against a
   second effect merged by the concurrent module: an event is a way a step ends, not a thing beside the dialogue.
+  Whichever ends the step, the face stops listening AT ONCE (the `cancel` `register` gave): an event heard is not
+  listened to again before the rest runs (2026-11-04 — Laminar and the DOM face kept the listener until the next step
+  was shown, so a page whose program went on to work of its own after an event, okay-ui's `Laminar.run` into
+  `Async`, kept listening meanwhile).
 - Non-local jumps — DONE 2026-10-21 as `Jumps`: `jump(place)` raises the standard `Error[P]`, `jumping(start)(screen)`
   attempts each screen and begins at the place jumped to; the screens are unwound as an error unwinds them, the
   world's handlers outside keep their state. DECIDED over a history jump by the face: the jump is the program's own,

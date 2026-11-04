@@ -94,6 +94,8 @@ class LaminarFace[F <: Runner with Singleton](implicit val fx: F) {
         unlisten = w.listen { next =>
           val s = state.now();
           if ((s.step eq w) && !s.busy) {
+            // heard: not listened to again (specs/face-core.md "Open", external events)
+            unlisten(); unlisten = () => ();
             state.set(s.copy(busy = true));
             lower(next)(settle(_, Vector.empty, if (w.back) w :: s.history else s.history))
           }

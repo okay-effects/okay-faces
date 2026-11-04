@@ -177,6 +177,8 @@ class DomFace[F <: Runner with Singleton](implicit val fx: F) extends Drawing[F]
         unlisten = w.listen { next =>
           val s = shown
           if ((s.step eq w) && !s.busy) {
+            // heard: not listened to again (specs/face-core.md "Open", external events)
+            unlisten(); unlisten = () => ()
             // busy, but nothing disabled: an event is no press — a press made meanwhile goes to the step it brings
             shown = s.copy(busy = true)
             lower(next)(settle(_, Vector.empty, if (w.back) w :: s.history else s.history))
