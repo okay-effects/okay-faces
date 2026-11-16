@@ -4,7 +4,7 @@ import com.raquo.laminar.api.L._
 import okay.effects.{Sum, Void}
 import okay.effects.machine.Machine
 import okay.effects.shape.Shape
-import okay.effects.shape.Shape.{field, int, record, sub, sum, text, unit}
+import okay.effects.shape.Shape.{bool, field, int, record, sub, sum, text, unit}
 import okay.effects.async.Async
 import okay.faces.{Action, Face, Faces, View}
 import org.scalajs.dom
@@ -125,6 +125,20 @@ class LaminarFaceSuite extends munit.FunSuite {
     typeInto(root, "f-to", "Lviv")
     submit(root, "book")
     assertEquals(got, Some(Trip("Lviv", "bus")))
+  }
+
+  test("a flag's default is the box drawn checked, and the one sent") {
+    final case class Trip(to: String, back: Boolean)
+    val trip: Shape[Trip] = record(field("to", text).labelled("To"),
+      field("back", bool).labelled("Back too").withDefault(true))(Trip(_, _))(t => (t.to, t.back))
+    val book = Action[Trip, Trip]("book", "Book", trip)(t => t)
+    var got = Option.empty[Trip]
+    val root = mounted(face.element(steps[Trip, F, Void](offer[Trip, F](View.heading("A trip"), List(book))),
+      (t: Trip) => got = Some(t)))
+    assert(q(root, "#f-back").asInstanceOf[dom.html.Input].checked)
+    typeInto(root, "f-to", "Lviv")
+    submit(root, "book")
+    assertEquals(got, Some(Trip("Lviv", true)))
   }
 
   test("back re-resumes the previous step") {

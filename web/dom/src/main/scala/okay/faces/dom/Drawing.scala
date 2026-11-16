@@ -223,8 +223,11 @@ trait Drawing[F <: Runner with Singleton] {
         val step = if (leaf match { case Schema.Number(_) => true; case _ => false }) Seq("step" -> "any") else Nil
         for {
           in <- el("input", (Seq("id" -> id(path), "type" -> typ) ++ step): _*)(Nil)
-          _ <- field.flatMap(_.default).fold(unit)(d =>
-            put(in, Page.Value, d match { case Json.Str(s) => s; case other => Json.print(other) }))
+          // a flag's default is whether it is checked, not its value
+          _ <- field.flatMap(_.default).fold(unit)(d => leaf match {
+            case Schema.Bool => put(in, Page.Checked, (d == Json.Bool(true)).toString)
+            case _ => put(in, Page.Value, d match { case Json.Str(s) => s; case other => Json.print(other) })
+          })
           _ <- later { inputs(path) = in; unit }
           l <- labelled(path, field, in)
         } yield l
