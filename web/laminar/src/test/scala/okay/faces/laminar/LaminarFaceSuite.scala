@@ -112,6 +112,20 @@ class LaminarFaceSuite extends munit.FunSuite {
     submit(root, "book")
     assertEquals(got, Some(Trip("Lviv", 1, "train")))
   }
+  test("a choice's default is the option shown chosen, and the one sent") {
+    final case class Trip(to: String, by: String)
+    val trip: Shape[Trip] = record(field("to", text).labelled("To"),
+      field("by", Shape.choice("train" -> "train", "bus" -> "bus")).labelled("By").withDefault("bus"))(Trip(_, _))(t =>
+      (t.to, t.by))
+    val book = Action[Trip, Trip]("book", "Book", trip)(t => t)
+    var got = Option.empty[Trip]
+    val root = mounted(face.element(steps[Trip, F, Void](offer[Trip, F](View.heading("A trip"), List(book))),
+      (t: Trip) => got = Some(t)))
+    assertEquals(q(root, "#f-by").asInstanceOf[dom.html.Select].value, "bus")
+    typeInto(root, "f-to", "Lviv")
+    submit(root, "book")
+    assertEquals(got, Some(Trip("Lviv", "bus")))
+  }
 
   test("back re-resumes the previous step") {
     val root = mounted(face.element(steps[String, F, Void](greeting)))

@@ -154,7 +154,8 @@ trait Drawing[F <: Runner with Singleton] {
           Some(field.getOrElse(Schema.Field(path.lastOption.getOrElse(""), of0, None, None, false, None)).copy(
               label = Some(label0), doc = doc)))
       case Schema.Optional(of0) => of(path, of0, field)
-      case Schema.Choice(options) => select(path, options).flatMap(sel => labelled(path, field, sel))
+      case Schema.Choice(options) =>
+        select(path, options, chosen(field)).flatMap(sel => labelled(path, field, sel))
       case Schema.OneOf(cases) =>
         // the case chosen by a select; every case's fields drawn, only the chosen one's shown
         def show(shown: List[(String, dom.Node)], w: String): Unit ! W =
@@ -228,8 +229,13 @@ trait Drawing[F <: Runner with Singleton] {
           l <- labelled(path, field, in)
         } yield l
     }
-    private def select(path: List[String], options: Seq[String]): dom.Node ! W =
-      el("select", "id" -> id(path))(options.toList.map(o => el("option", "value" -> o)(List(txt(o))))).flatMap {
+    /** a choice's default: the option it names, chosen when the form is drawn */
+    private def chosen(field: Option[Schema.Field]): Option[String] =
+      field.flatMap(_.default).collect { case Json.Str(s) => s }
+    private def select(path: List[String], options: Seq[String], picked: Option[String] = None): dom.Node ! W =
+      el("select", "id" -> id(path))(options.toList.map(o =>
+        el("option", (Seq("value" -> o) ++ Option.when(picked.contains(o))("selected" -> "selected")): _*)(
+          List(txt(o))))).flatMap {
         sel => later { selects(path) = sel; node(sel) }
       }
     private def labelled(path: List[String], field: Option[Schema.Field], control: dom.Node): dom.Node ! W = {

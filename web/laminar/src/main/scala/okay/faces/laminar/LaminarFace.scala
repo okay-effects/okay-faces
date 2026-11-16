@@ -251,7 +251,9 @@ object Forms {
               label = Some(label0), doc = doc)))
       case Schema.Optional(of0) => of(path, of0, field)
       case Schema.Choice(options) =>
-        val sel = select(idAttr := id(path), options.map(o => option(value := o, o)))
+        // a choice's default (`filledWith`): the option it names, chosen when the form is drawn
+        val picked = field.flatMap(_.default).collect { case Json.Str(s) => s }
+        val sel = select(idAttr := id(path), options.map(o => option(value := o, o, selected := picked.contains(o))))
         selects(path) = sel
         labelled(path, field, sel)
       case Schema.OneOf(cases) =>
