@@ -6,7 +6,7 @@ import okay.effects.machine.Machine
 import okay.effects.shape.Shape
 import okay.effects.shape.Shape.{bool, field, int, record, sub, sum, text, unit}
 import okay.effects.async.Async
-import okay.faces.{Action, Face, Faces, View}
+import okay.faces.{Action, Face, Faces, View, Words}
 import org.scalajs.dom
 import scala.concurrent.{Future, Promise}
 import scala.scalajs.concurrent.JSExecutionContext.Implicits.queue
@@ -72,6 +72,10 @@ class LaminarFaceSuite extends munit.FunSuite {
     assertEquals(q(root, "h1").textContent, "Who are you?")
     assertEquals(q(root, "label[for=f-name]").textContent, "Name")
     assertEquals(q(root, "#f-age").getAttribute("type"), "number")
+    // a blank field: named by its label, not its key
+    typeInto(root, "f-age", "30")
+    submit(root, "submit")
+    assert(root.innerHTML.contains("Name: required") && !root.innerHTML.contains("name: required"), root.innerHTML)
     typeInto(root, "f-name", "Ann"); typeInto(root, "f-age", "3")
     submit(root, "submit")
     assert(root.innerHTML.contains("age: of age"), root.innerHTML) // the problem, from the shape
@@ -86,6 +90,15 @@ class LaminarFaceSuite extends munit.FunSuite {
     assert(root.innerHTML.contains("Hello, Ann!"), root.innerHTML)
     assertEquals(result, Some("greeted Ann"))
   }
+  test("a problem in the person's language: the label, and 'required' in the face's words") {
+    val labels = Forms.labels(Action[Who, Who]("x", "X", who)(w => w).params.erased)
+    assertEquals(labels(List("name")), "Name")
+    assertEquals(labels(List("age")), "age")
+    val blank = okay.effects.shape.Problem(List("name"), "required")
+    assertEquals(Forms.say(blank, labels, Words.polish), "Name: wymagane")
+    assertEquals(Forms.say(okay.effects.shape.Problem(Nil, "too late"), labels, Words.russian), "too late")
+  }
+
   test("fields held back under Options: closed, their defaults sent; a problem naming one opens them") {
     final case class Trip(to: String, seats: Int, by: String)
     val trip: Shape[Trip] = record(field("to", text).labelled("To"),

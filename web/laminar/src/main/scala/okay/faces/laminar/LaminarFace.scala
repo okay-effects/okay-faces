@@ -128,7 +128,11 @@ class LaminarFace[F <: Runner with Singleton](implicit val fx: F) {
         case Step.Told(_, _) => div(notices, div(cls := "okay-busy", "…"))
         case w: Step.Waiting[A, M] @unchecked =>
           val problems = child <-- state.signal.map(_.problems).distinct.map(ps =>
-            if (ps.isEmpty) emptyNode else ul(cls := Role.Problems.classes, ps.map(p => li(p.render))))
+            if (ps.isEmpty) emptyNode
+            else {
+              val labels = w.actions.flatMap(a => Forms.labels(a.params.erased)).toMap
+              ul(cls := Role.Problems.classes, ps.map(p => li(Forms.say(p, labels, words))))
+            })
           val busy = state.signal.map(_.busy).distinct
           val backButton = if (s.history.isEmpty) emptyNode
           else
@@ -198,6 +202,24 @@ object Views {
  * for none, a list of leaves a textarea one per line. What is typed becomes JSON the action's shape decodes — the face
  * does not validate, the shape does, and the problems come back */
 object Forms {
+  /** each field's label by its path, as the form draws it (a field with none is named by its name) */
+  def labels(schema: Schema, path: List[String] = Nil): Map[List[String], String] = schema match {
+    case Schema.Record(fs) => fs.flatMap { f =>
+        // a Described inside the field names it first, as the form draws it
+        val inner = labels(f.schema, path :+ f.name)
+        inner + ((path :+ f.name) -> inner.getOrElse(path :+ f.name, f.label.getOrElse(f.name)))
+      }.toMap
+    case Schema.Described(of0, label0, _) => labels(of0, path) + (path -> label0)
+    case Schema.Optional(of0) => labels(of0, path)
+    case Schema.OneOf(cases) => cases.flatMap { case (n, c) => labels(c, path :+ n) }.toMap
+    case _ => Map.empty
+  }
+  /** a problem in the person's words: the field's label, not its key; "required" in the face's language (an English
+   * key on a Polish page was okay-invest's, 2026-11-17) */
+  def say(p: okay.effects.shape.Problem, labels: Map[List[String], String], words: Words): String = {
+    val message = if (p.message == "required") words.required else p.message
+    if (p.path.isEmpty) message else labels.getOrElse(p.path, p.path.mkString(".")) + ": " + message
+  }
   def action[A](a: Action[A], choose: Chosen => Unit, busy: Boolean, words: Words): HtmlElement =
     action(a, choose, Val(busy), words)
   def action[A](a: Action[A], choose: Chosen => Unit, busy: Boolean): HtmlElement =

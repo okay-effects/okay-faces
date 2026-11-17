@@ -193,7 +193,8 @@ final case class Words(back: String = "Back", help: String = "Help", done: Strin
   keyHint: String = "a [key]", backHint: String = "< back", helpHint: String = "? help", quitHint: String = "q quit",
   typeAKey: String = "type a [key]", oneOf: String = "problem: one of", howMany: String = "how many",
   optional: String = "empty for none", default: String = "default", hidden: String = "hidden",
-  problem: String = "problem", onePerLine: String = "one per line", options: String = "Options") {
+  problem: String = "problem", onePerLine: String = "one per line", options: String = "Options",
+  required: String = "required") {
   /** the notice a face shows when the dialogue is over */
   def over: View = View.info(done)
 }
@@ -201,13 +202,14 @@ object Words {
   val english: Words = Words()
   val russian: Words = Words("Назад", "Справка", "готово", "Добавить", "Убрать", "Начать заново", "Такого сеанса нет.",
     "[клавиша]", "< назад", "? справка", "q выход", "нажмите [клавишу]", "ошибка: одно из", "сколько",
-    "пусто — ничего", "по умолчанию", "скрыто", "ошибка", "по одному в строке", "Ещё")
+    "пусто — ничего", "по умолчанию", "скрыто", "ошибка", "по одному в строке", "Ещё", "нужно заполнить")
   val ukrainian: Words = Words("Назад", "Довідка", "готово", "Додати", "Прибрати", "Почати знову",
     "Такого сеансу немає.", "[клавіша]", "< назад", "? довідка", "q вихід", "натисніть [клавішу]", "помилка: одне з",
-    "скільки", "порожньо — нічого", "за замовчуванням", "приховано", "помилка", "по одному в рядку", "Ще")
+    "скільки", "порожньо — нічого", "за замовчуванням", "приховано", "помилка", "по одному в рядку", "Ще",
+    "треба заповнити")
   val polish: Words = Words("Wstecz", "Pomoc", "gotowe", "Dodaj", "Usuń", "Zacznij od nowa", "Nie ma takiej sesji.",
     "[klawisz]", "< wstecz", "? pomoc", "q wyjście", "naciśnij [klawisz]", "błąd: jedno z", "ile", "puste — nic",
-    "domyślnie", "ukryte", "błąd", "po jednym w wierszu", "Więcej")
+    "domyślnie", "ukryte", "błąd", "po jednym w wierszu", "Więcej", "wymagane")
   /** THE FACE'S WORDS IN A LANGUAGE, by its code (`ru`, `uk-UA`, `pl`): the ones there are, else English */
   def of(language: String): Words = language.toLowerCase.takeWhile(c => c != '-' && c != '_') match {
     case "ru" => russian
