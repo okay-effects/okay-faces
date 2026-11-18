@@ -161,8 +161,17 @@ object Views {
     case View.Heading(2, s) => h2(cls := Role.Heading(2).classes, s)
     case View.Heading(l, s) => h3(cls := Role.Heading(l).classes, s)
     case View.Notice(level, s) => p(cls := Role.Notice(level).classes, s)
+    // each pair in a div of its own (HTML allows it in a dl): a skin can lay pairs out as tiles or columns
     case View.Fields(rows) => dl(cls := Role.Fields.classes,
-        rows.flatMap { case (k, x) => List(dt(cls := Role.Label.classes, k), dd(element(x, ref))) })
+        rows.map { case (k, x) => div(cls := "okay-pair", dt(cls := Role.Label.classes, k), dd(element(x, ref))) })
+    // HELP: a group marked "help" drawn closed, a "?" that opens it in place (details/summary: the keyboard and a
+    // screen reader by the browser; nothing moves until it is asked for)
+    case View.Marked("help", View.Group(title, children)) =>
+      detailsTag(cls := Role.Mark("help").classes,
+        summaryTag(cls := "okay-help-open", aria.label := title.getOrElse("?"), title.map(t => htmlAttr("title",
+          com.raquo.laminar.codecs.StringAsIsCodec) := t), "?"),
+        div(cls := "okay-help-body", title.map(t => h4(cls := Role.GroupTitle.classes, t)),
+          children.map(element(_, ref))))
     case View.Table(columns, rows) => table(cls := Role.Table.classes,
         if (columns.forall(_.isEmpty)) emptyNode else thead(tr(columns.map(c => th(c)))),
         tbody(rows.map(r => tr(r.map(c => td(element(c, ref)))))))

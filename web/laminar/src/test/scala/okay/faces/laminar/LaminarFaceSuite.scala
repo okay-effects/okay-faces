@@ -176,7 +176,22 @@ class LaminarFaceSuite extends munit.FunSuite {
     assertEquals(root.querySelectorAll("th").length, 2)
     assertEquals(q(root, "span.okay-masked").textContent, "••")
     assertEquals(q(root, "dt").textContent, "k")
+    assertEquals(q(root, "dl > div.okay-pair > dt").textContent, "k") // a pair kept together, for a skin's tiles
     assertEquals(q(root, "li").textContent, "x")
+  }
+  test("help: a group marked help is a closed details, a '?' named by its topic, opened in place") {
+    val root = mounted(face.element(steps[Unit, F, Void](show[F](View.stack(View.heading("Result"),
+      View.Marked("help", View.Group(Some("What is a drawdown"), Vector(View.text("The fall from a top.")))))))))
+    val d = q(root, "details.okay-mark-help").asInstanceOf[scala.scalajs.js.Dynamic]
+    assert(!d.open.asInstanceOf[Boolean], "closed until asked")
+    val open = q(root, "details.okay-mark-help > summary.okay-help-open")
+    assertEquals((open.textContent, open.getAttribute("aria-label")), ("?", "What is a drawdown"))
+    assertEquals(q(root, ".okay-help-body h4").textContent, "What is a drawdown")
+    assert(q(root, ".okay-help-body").textContent.contains("The fall from a top."))
+    // a group marked otherwise is drawn as before
+    val other = mounted(face.element(steps[Unit, F, Void](show[F](View.Marked("card", View.Group(None,
+      Vector(View.text("x"))))))))
+    assert(other.querySelector("details") == null)
   }
   test("a sum in a form: the case chosen by a select, its fields the ones collected") {
     sealed trait Pet
