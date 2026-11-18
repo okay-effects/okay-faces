@@ -179,6 +179,13 @@ class LaminarFaceSuite extends munit.FunSuite {
     assertEquals(q(root, "dl > div.okay-pair > dt").textContent, "k") // a pair kept together, for a skin's tiles
     assertEquals(q(root, "li").textContent, "x")
   }
+  test("a screen's address: the view marked path, found inside groups; not drawn") {
+    val v = View.stack(View.heading("Planner"), View.Marked("path", View.Group(None, Vector(View.text("planner")))))
+    assertEquals(Views.pathOf(v), Some("planner"))
+    assertEquals(Views.pathOf(View.stack(View.heading("Home"))), None)
+    val root = mounted(face.element(steps[Unit, F, Void](show[F](v))))
+    assert(!root.textContent.contains("planner"), root.innerHTML)
+  }
   test("help: a group marked help is a closed details, a '?' named by its topic, opened in place") {
     val root = mounted(face.element(steps[Unit, F, Void](show[F](View.stack(View.heading("Result"),
       View.Marked("help", View.Group(Some("What is a drawdown"), Vector(View.text("The fall from a top.")))))))))

@@ -88,7 +88,15 @@ class LaminarFace[F <: Runner with Singleton](implicit val fx: F) {
         lower(next)(settle(_, shown, history))
       case w: Step.Waiting[A, M] @unchecked =>
         state.set(Shown(told, w, history, Nil, busy = false))
-        if (browserHistory && history.nonEmpty) dom.window.history.pushState(null, "")
+        // A SCREEN'S ADDRESS: a view marked "path" gives the step a URL of its own (relative, the query kept) — a
+        // visit counter and the back button see the screens (okay-invest's analytics, 2026-11-18)
+        if (browserHistory) Views.pathOf(w.view) match {
+          case Some(p) =>
+            val url = p + dom.window.location.search
+            if (history.nonEmpty) dom.window.history.pushState(null, "", url)
+            else dom.window.history.replaceState(null, "", url)
+          case None => if (history.nonEmpty) dom.window.history.pushState(null, "")
+        }
         // the step's event: when it fires and this is still the step, the rest runs as a choice's would
         unlisten();
         unlisten = w.listen { next =>
@@ -152,6 +160,15 @@ class LaminarFace[F <: Runner with Singleton](implicit val fx: F) {
 
 /** a `View` as Laminar elements: semantic tags, classes for a stylesheet, nothing else */
 object Views {
+  /** the screen's address: the first view marked "path" (its text, or the text of the group it marks) */
+  def pathOf(v: View): Option[String] = v match {
+    case View.Marked("path", View.Text(p)) => Some(p)
+    case View.Marked("path", View.Group(_, cs)) => cs.collectFirst { case View.Text(p) => p }
+    case View.Marked(_, x) => pathOf(x)
+    case View.Group(_, cs) => cs.iterator.map(pathOf).collectFirst { case Some(p) => p }
+    case _ => None
+  }
+
   def element(v: View): HtmlElement = element(v, None)
   /** `ref`: what a `Ref` does when the step offers the action `ref` — a click chooses it with the key */
   def element(v: View, ref: Option[String => Unit]): HtmlElement = v match {
@@ -166,6 +183,7 @@ object Views {
         rows.map { case (k, x) => div(cls := "okay-pair", dt(cls := Role.Label.classes, k), dd(element(x, ref))) })
     // HELP: a group marked "help" drawn closed, a "?" that opens it in place (details/summary: the keyboard and a
     // screen reader by the browser; nothing moves until it is asked for)
+    case View.Marked("path", _) => span(display := "none") // the screen's address, not shown (pathOf)
     case View.Marked("help", View.Group(title, children)) =>
       detailsTag(cls := Role.Mark("help").classes,
         summaryTag(cls := "okay-help-open", aria.label := title.getOrElse("?"), title.map(t => htmlAttr("title",
